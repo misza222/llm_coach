@@ -3,6 +3,8 @@ interface SidebarProps {
   detectedEmotions: string[]
   mainGoal: string | null
   onNewSession: () => void
+  remainingMessages: number | null
+  isAuthenticated: boolean
 }
 
 function formatPhase(phase: string): string {
@@ -12,9 +14,25 @@ function formatPhase(phase: string): string {
     .join(' ')
 }
 
-export function Sidebar({ phase, detectedEmotions, mainGoal, onNewSession }: SidebarProps) {
+export function Sidebar({
+  phase,
+  detectedEmotions,
+  mainGoal,
+  onNewSession,
+  remainingMessages,
+  isAuthenticated,
+}: SidebarProps) {
   return (
     <aside className="flex w-64 flex-col border-l border-gray-200 bg-gray-50 p-4">
+      {/* Guest message count */}
+      {!isAuthenticated && remainingMessages !== null && (
+        <div className="mb-4 border-b border-gray-200 pb-4">
+          <p className="text-xs text-amber-600">
+            {remainingMessages} free message{remainingMessages !== 1 ? 's' : ''} left
+          </p>
+        </div>
+      )}
+
       <h2 className="mb-4 text-sm font-semibold text-gray-500 uppercase tracking-wide">
         Session Info
       </h2>

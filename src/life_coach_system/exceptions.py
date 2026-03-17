@@ -11,6 +11,8 @@ __all__ = [
     "LLMError",
     "PersistenceError",
     "EvaluationError",
+    "AuthenticationError",
+    "AnonymousLimitError",
 ]
 
 
@@ -32,3 +34,11 @@ class PersistenceError(LifeCoachError):
 
 class EvaluationError(LifeCoachError):
     """Raised when evaluation fails."""
+
+
+class AuthenticationError(LifeCoachError):
+    """Raised when authentication fails (invalid/expired token)."""
+
+
+class AnonymousLimitError(LifeCoachError):
+    """Raised when an anonymous user exceeds the free message limit."""

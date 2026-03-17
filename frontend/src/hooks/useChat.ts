@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getSession, resetSession, sendMessage } from '../api/client'
+import { ApiError, getSession, resetSession, sendMessage } from '../api/client'
 import type { ChatMessage } from '../api/types'
 
 interface SessionMeta {
@@ -21,6 +21,8 @@ export function useChat(userId: string) {
   const [meta, setMeta] = useState<SessionMeta>(EMPTY_META)
   const [isSending, setIsSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [loginRequired, setLoginRequired] = useState(false)
+  const [remainingMessages, setRemainingMessages] = useState<number | null>(null)
 
   // Load existing session on mount
   useEffect(() => {
@@ -46,7 +48,7 @@ export function useChat(userId: string) {
 
   const send = useCallback(
     async (message: string) => {
-      if (!message.trim() || isSending) return
+      if (!message.trim() || isSending || loginRequired) return
       setError(null)
 
       // Optimistic: show user message immediately
@@ -63,16 +65,21 @@ export function useChat(userId: string) {
           mainGoal: meta.mainGoal,
           userName: meta.userName,
         })
+        setRemainingMessages(response.remaining_messages)
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Something went wrong'
-        setError(msg)
-        // Remove optimistic user message
-        setHistory((prev) => prev.slice(0, -1))
+        if (err instanceof ApiError && err.status === 403) {
+          setLoginRequired(true)
+          setHistory((prev) => prev.slice(0, -1))
+        } else {
+          const msg = err instanceof Error ? err.message : 'Something went wrong'
+          setError(msg)
+          setHistory((prev) => prev.slice(0, -1))
+        }
       } finally {
         setIsSending(false)
       }
     },
-    [userId, isSending, meta.mainGoal, meta.userName],
+    [userId, isSending, loginRequired, meta.mainGoal, meta.userName],
   )
 
   const reset = useCallback(async () => {
@@ -80,7 +87,9 @@ export function useChat(userId: string) {
     setHistory([])
     setMeta(EMPTY_META)
     setError(null)
+    setLoginRequired(false)
+    setRemainingMessages(null)
   }, [userId])
 
-  return { history, meta, isSending, error, send, reset }
+  return { history, meta, isSending, error, send, reset, loginRequired, remainingMessages }
 }

@@ -8,23 +8,13 @@ in config determines which engine is created.
 import json
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, MetaData, String, Table, Text, create_engine, select
+from sqlalchemy import create_engine, select
 from sqlalchemy.engine import Engine
 
 from life_coach_system.exceptions import PersistenceError
+from life_coach_system.persistence.tables import metadata, sessions_table
 
 __all__ = ["SqlBackend"]
-
-metadata = MetaData()
-
-sessions_table = Table(
-    "sessions",
-    metadata,
-    Column("user_id", String(255), primary_key=True),
-    Column("state", Text, nullable=False),
-    Column("created_at", DateTime(timezone=True), nullable=False),
-    Column("updated_at", DateTime(timezone=True), nullable=False),
-)
 
 
 class SqlBackend:

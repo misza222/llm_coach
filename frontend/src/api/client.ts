@@ -1,4 +1,4 @@
-import type { ChatRequest, ChatResponse, SessionResponse } from './types'
+import type { AuthStatusResponse, ChatRequest, ChatResponse, SessionResponse } from './types'
 
 class ApiError extends Error {
   status: number
@@ -13,6 +13,7 @@ class ApiError extends Error {
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     ...options,
   })
   if (!response.ok) {
@@ -37,6 +38,14 @@ export async function resetSession(userId: string): Promise<void> {
   await request(`/api/v1/sessions/${encodeURIComponent(userId)}/reset`, {
     method: 'POST',
   })
+}
+
+export async function getAuthStatus(): Promise<AuthStatusResponse> {
+  return request<AuthStatusResponse>('/api/v1/auth/me')
+}
+
+export async function logout(): Promise<void> {
+  await request('/api/v1/auth/logout', { method: 'POST' })
 }
 
 export { ApiError }

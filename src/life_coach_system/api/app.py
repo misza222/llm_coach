@@ -10,11 +10,18 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 
 from life_coach_system._logging import configure_logging, get_logger
-from life_coach_system.api.routes import chat_router, health_router, session_router
+from life_coach_system.api.routes import auth_router, chat_router, health_router, session_router
 from life_coach_system.config import settings
-from life_coach_system.exceptions import LifeCoachError, LLMError, PersistenceError
+from life_coach_system.exceptions import (
+    AnonymousLimitError,
+    AuthenticationError,
+    LifeCoachError,
+    LLMError,
+    PersistenceError,
+)
 
 log = get_logger(__name__)
 
@@ -30,6 +37,9 @@ def create_app() -> FastAPI:
         redoc_url="/api/redoc",
     )
 
+    # -- Session middleware (required by Authlib OAuth) --
+    app.add_middleware(SessionMiddleware, secret_key=settings.jwt_secret)
+
     # -- CORS (allow Vite dev server in debug mode) --
     if settings.debug:
         app.add_middleware(
@@ -37,9 +47,20 @@ def create_app() -> FastAPI:
             allow_origins=["http://localhost:5173"],
             allow_methods=["*"],
             allow_headers=["*"],
+            allow_credentials=True,
         )
 
     # -- Exception handlers --
+    @app.exception_handler(AuthenticationError)
+    async def _handle_auth_error(_request: Request, exc: AuthenticationError) -> JSONResponse:
+        log.warning("auth_error", error=str(exc))
+        return JSONResponse(status_code=401, content={"detail": str(exc)})
+
+    @app.exception_handler(AnonymousLimitError)
+    async def _handle_anon_limit(_request: Request, exc: AnonymousLimitError) -> JSONResponse:
+        log.info("anonymous_limit_reached", error=str(exc))
+        return JSONResponse(status_code=403, content={"detail": str(exc)})
+
     @app.exception_handler(LLMError)
     async def _handle_llm_error(_request: Request, exc: LLMError) -> JSONResponse:
         log.error("llm_error", error=str(exc))
@@ -57,6 +78,7 @@ def create_app() -> FastAPI:
 
     # -- Routers --
     app.include_router(health_router)
+    app.include_router(auth_router)
     app.include_router(chat_router)
     app.include_router(session_router)
 
