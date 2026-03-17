@@ -10,7 +10,7 @@ from life_coach_system.api.schemas import ChatMessage, ChatRequest, ChatResponse
 from life_coach_system.engine.coach import CoachAgent
 from life_coach_system.memory.logic.manager import MemoryManager
 from life_coach_system.memory.schemas.session_state import SessionState
-from life_coach_system.persistence.in_memory import InMemoryBackend
+from life_coach_system.persistence.backend import PersistenceBackend
 
 log = get_logger(__name__)
 
@@ -22,7 +22,7 @@ def chat(
     request: ChatRequest,
     *,
     coach: CoachAgent = Depends(get_coach),
-    storage: InMemoryBackend = Depends(get_storage),
+    storage: PersistenceBackend = Depends(get_storage),
     memory_manager: MemoryManager = Depends(get_memory_manager),
 ) -> ChatResponse:
     """Send a user message and receive a coach response."""

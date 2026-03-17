@@ -18,7 +18,11 @@ dependencies = [
     "structlog>=24.0,<26.0",
     "fastapi>=0.115,<1.0",
     "uvicorn[standard]>=0.30,<1.0",
+    "sqlalchemy>=2.0,<3.0",
 ]
+
+[project.optional-dependencies]
+postgres = ["psycopg[binary]>=3.1,<4.0"]
 
 [project.scripts]
 life-coach-dev = "life_coach_system.dev_ui:main"
