@@ -20,7 +20,6 @@ env/
 
 # uv
 .uv/
-uv.lock
 
 # Testing & coverage
 .pytest_cache/
