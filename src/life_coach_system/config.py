@@ -74,4 +74,4 @@ class Settings(BaseSettings):
 
 
 # Module-level singleton — import this everywhere instead of instantiating Settings directly.
-settings = Settings()
+settings = Settings()  # type: ignore[call-arg]  # populated from env/.env at runtime
