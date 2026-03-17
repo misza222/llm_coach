@@ -13,6 +13,8 @@ export interface ChatResponse {
   phase: string
   detected_emotions: string[]
   history: ChatMessage[]
+  is_anonymous: boolean
+  remaining_messages: number | null
 }
 
 export interface SessionResponse {
@@ -23,4 +25,16 @@ export interface SessionResponse {
   detected_emotions: string[]
   history: ChatMessage[]
   created_at: string
+}
+
+export interface UserInfo {
+  id: string
+  email: string | null
+  name: string | null
+  provider: string | null
+}
+
+export interface AuthStatusResponse {
+  is_authenticated: boolean
+  user: UserInfo | null
 }

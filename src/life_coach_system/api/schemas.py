@@ -7,6 +7,8 @@ __all__ = [
     "ChatMessage",
     "ChatResponse",
     "SessionResponse",
+    "UserInfo",
+    "AuthStatusResponse",
 ]
 
 from pydantic import BaseModel, Field
@@ -33,6 +35,8 @@ class ChatResponse(BaseModel):
     phase: str
     detected_emotions: list[str]
     history: list[ChatMessage]
+    is_anonymous: bool = True
+    remaining_messages: int | None = None
 
 
 class SessionResponse(BaseModel):
@@ -45,3 +49,19 @@ class SessionResponse(BaseModel):
     detected_emotions: list[str]
     history: list[ChatMessage]
     created_at: str
+
+
+class UserInfo(BaseModel):
+    """Authenticated user info."""
+
+    id: str
+    email: str | None = None
+    name: str | None = None
+    provider: str | None = None
+
+
+class AuthStatusResponse(BaseModel):
+    """Response for /auth/me endpoint."""
+
+    is_authenticated: bool
+    user: UserInfo | None = None

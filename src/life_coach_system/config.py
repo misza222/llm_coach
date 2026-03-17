@@ -43,6 +43,25 @@ class Settings(BaseSettings):
     # Debug mode
     debug: bool = True
 
+    # --- Authentication ---
+    jwt_secret: str = "change-me-in-production"
+    jwt_algorithm: str = "HS256"
+    jwt_expiry_minutes: int = 60 * 24 * 7  # 1 week
+
+    # Anonymous users can send this many messages before login is required
+    max_anonymous_messages: int = 5
+
+    # OAuth provider credentials
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    twitter_client_id: str = ""
+    twitter_client_secret: str = ""
+    facebook_client_id: str = ""
+    facebook_client_secret: str = ""
+
+    # Base URL for OAuth redirect URIs
+    oauth_redirect_base_url: str = "http://localhost:8000"
+
     @property
     def base_dir(self) -> Path:
         """Absolute path to the life_coach_system package directory."""

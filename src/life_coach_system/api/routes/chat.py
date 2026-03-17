@@ -5,9 +5,18 @@ Chat endpoint — send a message and get a coach reply.
 from fastapi import APIRouter, Depends
 
 from life_coach_system._logging import get_logger
-from life_coach_system.api.dependencies import get_coach, get_memory_manager, get_storage
+from life_coach_system.api.dependencies import (
+    get_coach,
+    get_current_user,
+    get_memory_manager,
+    get_storage,
+    get_user_repository,
+)
 from life_coach_system.api.schemas import ChatMessage, ChatRequest, ChatResponse
+from life_coach_system.auth.user_repository import UserRepository
+from life_coach_system.config import settings
 from life_coach_system.engine.coach import CoachAgent
+from life_coach_system.exceptions import AnonymousLimitError
 from life_coach_system.memory.logic.manager import MemoryManager
 from life_coach_system.memory.schemas.session_state import SessionState
 from life_coach_system.persistence.backend import PersistenceBackend
@@ -24,9 +33,28 @@ def chat(
     coach: CoachAgent = Depends(get_coach),
     storage: PersistenceBackend = Depends(get_storage),
     memory_manager: MemoryManager = Depends(get_memory_manager),
+    current_user: dict | None = Depends(get_current_user),
+    user_repo: UserRepository = Depends(get_user_repository),
 ) -> ChatResponse:
     """Send a user message and receive a coach response."""
-    user_id = request.user_id
+    is_anonymous = current_user is None
+
+    # Use authenticated user_id if available, otherwise the client-provided one
+    if is_anonymous:
+        user_id = request.user_id
+    else:
+        user_id = current_user["sub"]
+
+    # Anonymous message gating
+    remaining_messages: int | None = None
+    if is_anonymous:
+        current_count = user_repo.get_anonymous_count(user_id)
+        if current_count >= settings.max_anonymous_messages:
+            raise AnonymousLimitError(
+                f"Anonymous message limit ({settings.max_anonymous_messages}) reached. "
+                "Please sign in to continue."
+            )
+        remaining_messages = settings.max_anonymous_messages - current_count - 1
 
     # Load or create session state
     if storage.exists(user_id):
@@ -40,6 +68,10 @@ def chat(
     # Persist updated state
     storage.save(user_id, updated_state.model_dump())
 
+    # Increment anonymous count after successful response
+    if is_anonymous:
+        user_repo.increment_anonymous_count(user_id)
+
     log.info("chat_response", user_id=user_id, phase=updated_state.current_phase)
 
     return ChatResponse(
@@ -50,4 +82,6 @@ def chat(
             ChatMessage(role=msg["role"], content=msg["content"])
             for msg in updated_state.conversation_history
         ],
+        is_anonymous=is_anonymous,
+        remaining_messages=remaining_messages,
     )

@@ -1,21 +1,12 @@
-import { useState } from 'react'
-
-const STORAGE_KEY = 'life-coach-user-id'
-
-function getOrCreateUserId(): string {
-  const stored = localStorage.getItem(STORAGE_KEY)
-  if (stored) return stored
-  const id = crypto.randomUUID()
-  localStorage.setItem(STORAGE_KEY, id)
-  return id
-}
+import { useAuth } from '../contexts/AuthContext'
 
 export function useSession() {
-  const [userId] = useState(getOrCreateUserId)
+  const { user, isAuthenticated, anonymousId } = useAuth()
+
+  // Authenticated users use their server-side user ID; anonymous users use localStorage UUID
+  const userId = isAuthenticated && user ? user.id : anonymousId
 
   const newSession = () => {
-    const id = crypto.randomUUID()
-    localStorage.setItem(STORAGE_KEY, id)
     // Force full reload so all state resets cleanly
     window.location.reload()
   }
