@@ -61,6 +61,22 @@ flowchart TD
 
 ---
 
+## Persistence
+
+Session state is pluggable via the `PersistenceBackend` protocol. The backend is selected by the `DATABASE_URL` environment variable:
+
+| `DATABASE_URL` | Backend | Use case |
+|---|---|---|
+| *(not set)* | `InMemoryBackend` | Development — state lost on restart |
+| `sqlite:///sessions.db` | `SqlBackend` (SQLite) | Local dev with persistence |
+| `postgresql://user:pass@host/db` | `SqlBackend` (PostgreSQL) | Production | <!-- pragma: allowlist secret -->
+
+For PostgreSQL, install the driver extra: `uv pip install life-coach-system[postgres]`.
+
+The SQL backend stores each user's `SessionState` as a JSON blob in a single `sessions` table (auto-created on startup).
+
+---
+
 ## How to run
 
 ### Client UI (FastAPI + React)
@@ -97,6 +113,20 @@ docker run --rm -p 8000:8000 --env-file .env life-coach-system
 ```
 
 The app is available at `http://localhost:8000`. Environment variables (API keys, model config) are injected at runtime via `--env-file` or `-e` flags — nothing is baked into the image.
+
+For persistent storage inside Docker, mount a volume for SQLite or point to an external PostgreSQL:
+
+```bash
+# SQLite with a volume
+docker run --rm -p 8000:8000 --env-file .env \
+  -e DATABASE_URL=sqlite:////data/sessions.db \
+  -v life-coach-data:/data life-coach-system
+
+# PostgreSQL
+docker run --rm -p 8000:8000 --env-file .env \
+  -e DATABASE_URL=postgresql://user:pass@db-host:5432/life_coach \  # pragma: allowlist secret
+  life-coach-system
+```
 
 ### Dev UI (Gradio)
 
