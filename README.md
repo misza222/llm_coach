@@ -89,9 +89,21 @@ cd frontend && npm run dev
 
 The Vite dev server runs at `http://localhost:5173`.
 
-### Dev UI (Gradio)
+### Docker
 
 ```bash
+docker build -t life-coach-system .
+docker run --rm -p 8000:8000 --env-file .env life-coach-system
+```
+
+The app is available at `http://localhost:8000`. Environment variables (API keys, model config) are injected at runtime via `--env-file` or `-e` flags — nothing is baked into the image.
+
+### Dev UI (Gradio)
+
+Gradio is a dev-only dependency. Install dev dependencies first:
+
+```bash
+make install-dev        # or: uv sync --group dev
 uv run python dev_ui.py
 ```
 
