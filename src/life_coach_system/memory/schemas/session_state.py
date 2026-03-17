@@ -4,7 +4,7 @@ Session State Schema - current coaching session state.
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SessionState(BaseModel):
@@ -36,5 +36,4 @@ class SessionState(BaseModel):
     paraphrases_count: int = Field(default=0, description="Counter for LC-005")
     open_questions_count: int = Field(default=0, description="Counter for LC-004")
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
