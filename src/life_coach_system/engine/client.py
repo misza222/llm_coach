@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 LLM Client - wrapper for OpenAI API with Instructor (structured output).
 
@@ -6,14 +5,17 @@ This module provides the only place for LLM calls in the entire system.
 """
 
 from functools import lru_cache
-from typing import List, Optional, Any
-from openai import OpenAI
+from typing import Any
+
 import instructor
-from config import Config
+from openai import OpenAI
+
+from life_coach_system.config import settings
+from life_coach_system.exceptions import LLMError
 
 
-@lru_cache()
-def get_llm_client():
+@lru_cache
+def get_llm_client() -> instructor.Instructor:
     """
     Singleton LLM client with Instructor patch.
 
@@ -22,20 +24,15 @@ def get_llm_client():
 
     Returns:
         instructor.Instructor: Patched OpenAI client
-
-    NOTE: This function is complete - no modification needed.
     """
-    client = OpenAI(
-        api_key=Config.OPENAI_API_KEY,
-        base_url=Config.OPENAI_BASE_URL
-    )
+    client = OpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
     return instructor.patch(client, mode=instructor.Mode.MD_JSON)
 
 
 def call_llm(
-    messages: List[dict],
-    response_model: Optional[Any] = None,
-    **kwargs
+    messages: list[dict],
+    response_model: Any = None,
+    **kwargs: Any,
 ) -> Any:
     """
     Calls LLM API.
@@ -48,6 +45,9 @@ def call_llm(
     Returns:
         - If response_model provided: Pydantic model instance
         - If response_model=None: String (plain text)
+
+    Raises:
+        LLMError: When the API call fails.
 
     Example usage without structured output:
     ```python
@@ -73,19 +73,22 @@ def call_llm(
     client = get_llm_client()
 
     # Default parameters (can be overridden by **kwargs)
-    default_params = {
-        "model": Config.MODEL_NAME, ## model as config
+    default_params: dict[str, Any] = {
+        "model": settings.model_name,
         "messages": messages,
-        "temperature": Config.TEMPERATURE,
-        "max_tokens": Config.MAX_TOKENS,
+        "temperature": settings.temperature,
+        "max_tokens": settings.max_tokens,
     }
     default_params.update(kwargs)
 
-    if response_model:
-        # Structured output (Pydantic model)
-        default_params["response_model"] = response_model
-        return client.chat.completions.create(**default_params)
-    else:
-        # Plain text (no structured output) - level 1
-        response = client.chat.completions.create(**default_params)
-        return response.choices[0].message.content
+    try:
+        if response_model:
+            # Structured output (Pydantic model)
+            default_params["response_model"] = response_model
+            return client.chat.completions.create(**default_params)
+        else:
+            # Plain text (no structured output)
+            response = client.chat.completions.create(**default_params)
+            return response.choices[0].message.content
+    except Exception as e:
+        raise LLMError(f"LLM API call failed: {e}") from e

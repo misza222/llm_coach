@@ -3,18 +3,19 @@ InMemory Persistence Backend
 
 Simple in-memory storage for development and testing.
 State is lost on app restart - use only for dev/testing.
-
-NOTE: This file is reusable — no modifications needed.
 """
 
-from typing import Optional
-from .backend import PersistenceBackend, PersistenceError
 import copy
 
+from life_coach_system.exceptions import PersistenceError
 
-class InMemoryBackend(PersistenceBackend):
+
+class InMemoryBackend:
     """
     Store user state in memory (dict).
+
+    Satisfies the PersistenceBackend protocol via structural subtyping —
+    no explicit inheritance required.
 
     Advantages:
     - Fast (no I/O)
@@ -27,23 +28,23 @@ class InMemoryBackend(PersistenceBackend):
     - No multi-process support
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize empty storage."""
         self._storage: dict[str, dict] = {}
 
     def save(self, user_id: str, state: dict) -> None:
         """Save user state to memory."""
-        # Deep copy to avoid reference issues
+        # Deep copy to avoid reference issues when the caller mutates state later
         self._storage[user_id] = copy.deepcopy(state)
 
-    def load(self, user_id: str) -> Optional[dict]:
+    def load(self, user_id: str) -> dict | None:
         """Load user state from memory."""
         state = self._storage.get(user_id)
 
         if state is None:
             return None
 
-        # Return deep copy to avoid mutations affecting stored state
+        # Return deep copy to prevent mutations from affecting stored state
         return copy.deepcopy(state)
 
     def exists(self, user_id: str) -> bool:
@@ -51,7 +52,7 @@ class InMemoryBackend(PersistenceBackend):
         return user_id in self._storage
 
     def delete(self, user_id: str) -> None:
-        """Delete user state."""
+        """Delete user state. Raises PersistenceError if user doesn't exist."""
         if not self.exists(user_id):
             raise PersistenceError(f"User {user_id} does not exist")
 

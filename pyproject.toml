@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "life-coach-system"
 version = "0.1.0"
@@ -9,9 +13,17 @@ dependencies = [
     "openai>=1.0,<2.0",
     "instructor>=0.6",
     "pydantic>=2.0,<3.0",
+    "pydantic-settings>=2.0,<3.0",
     "jinja2>=3.1,<4.0",
     "python-dotenv>=1.0,<2.0",
+    "structlog>=24.0,<26.0",
 ]
+
+[project.scripts]
+life-coach = "life_coach_system.app:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/life_coach_system"]
 
 [dependency-groups]
 dev = [
@@ -19,6 +31,7 @@ dev = [
     "ruff>=0.4",
     "mypy>=1.10",
     "pre-commit>=3.7",
+    "pylint>=3.0",
 ]
 
 [tool.ruff]
@@ -32,3 +45,6 @@ select = ["E", "F", "I", "UP"]
 python_version = "3.10"
 strict = false
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,24 +1,32 @@
-
-# -*- coding: utf-8 -*-
 """
 Gradio UI for Life Coach System.
 
 This file contains the complete user interface for the coaching system.
-Run: python app.py
+Run: uv run python app.py
 """
 
-import gradio as gr
 import json
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from engine.coach import CoachAgent
-from persistence.in_memory import InMemoryBackend
-from memory.logic.manager import MemoryManager
-from memory.schemas.session_state import SessionState
-from config import Config
-from utils.leaderboard_parser import parse_leaderboard_card, filter_checks_by_priority
-from utils.evaluator import evaluate_conversation as evaluate_conv_llm, format_evaluation_results
+
+import gradio as gr
+
+from life_coach_system._logging import configure_logging, get_logger
+from life_coach_system.config import settings
+from life_coach_system.engine.coach import CoachAgent
+from life_coach_system.exceptions import LifeCoachError
+from life_coach_system.memory.logic.manager import MemoryManager
+from life_coach_system.memory.schemas.session_state import SessionState
+from life_coach_system.persistence.in_memory import InMemoryBackend
+from life_coach_system.utils.evaluator import evaluate_conversation as evaluate_conv_llm
+from life_coach_system.utils.evaluator import format_evaluation_results
+from life_coach_system.utils.leaderboard_parser import (
+    filter_checks_by_priority,
+    parse_leaderboard_card,
+)
+
+log = get_logger(__name__)
 
 # ===================================================================
 # Global instances (singleton pattern)
@@ -33,7 +41,8 @@ memory_manager = MemoryManager()
 # UI handling functions
 # ===================================================================
 
-def interact(message: str, history: list, user_id: str):
+
+def interact(message: str, history: list, user_id: str) -> tuple[list, dict, str]:
     """
     Main function handling interaction with coach.
 
@@ -50,7 +59,7 @@ def interact(message: str, history: list, user_id: str):
 
     # Use default user_id if empty
     if not user_id or not user_id.strip():
-        user_id = Config.DEFAULT_USER_ID
+        user_id = settings.default_user_id
 
     # Get or create state
     if storage.exists(user_id):
@@ -62,9 +71,13 @@ def interact(message: str, history: list, user_id: str):
     # Generate coach response
     try:
         response_text, updated_state = coach.respond(message, state)
-    except Exception as e:
+    except LifeCoachError as e:
         error_msg = f"Error generating response: {str(e)}"
-        print(f"ERROR: {error_msg}")
+        log.error("interact_failed", error=str(e))
+        return history, {"error": error_msg}, ""
+    except Exception as e:
+        error_msg = f"Unexpected error: {str(e)}"
+        log.error("interact_unexpected", error=str(e))
         return history, {"error": error_msg}, ""
 
     # Save state
@@ -81,23 +94,22 @@ def interact(message: str, history: list, user_id: str):
     export_history = []
     for i in range(0, len(history) - 1, 2):
         if i + 1 < len(history):
-            export_history.append((
-                history[i].get("content", ""),
-                history[i + 1].get("content", "")
-            ))
+            export_history.append(
+                (history[i].get("content", ""), history[i + 1].get("content", ""))
+            )
 
     export_data = {
         "user_id": user_id,
         "exported_at": datetime.now().isoformat(),
         "conversation": export_history,
-        "state": updated_state.model_dump()
+        "state": updated_state.model_dump(),
     }
     export_json = json.dumps(export_data, indent=2, ensure_ascii=False)
 
     return history, state_dict, export_json
 
 
-def reset_conversation(user_id: str):
+def reset_conversation(user_id: str) -> tuple[list, dict, str]:
     """
     Resets conversation (clears history and state).
 
@@ -108,7 +120,7 @@ def reset_conversation(user_id: str):
         Tuple: (empty_history, message, empty_export)
     """
     if not user_id or not user_id.strip():
-        user_id = Config.DEFAULT_USER_ID
+        user_id = settings.default_user_id
 
     if storage.exists(user_id):
         storage.delete(user_id)
@@ -116,7 +128,7 @@ def reset_conversation(user_id: str):
     return [], {"status": "State cleared"}, ""
 
 
-def load_state_for_user(user_id: str):
+def load_state_for_user(user_id: str) -> tuple[list, dict, str]:
     """
     Loads state for given user (to display when user_id changes).
 
@@ -127,7 +139,7 @@ def load_state_for_user(user_id: str):
         Tuple: (history, state_dict, export_json)
     """
     if not user_id or not user_id.strip():
-        user_id = Config.DEFAULT_USER_ID
+        user_id = settings.default_user_id
 
     if storage.exists(user_id):
         state_dict = storage.load(user_id)
@@ -136,10 +148,7 @@ def load_state_for_user(user_id: str):
         # Reconstruct history for Gradio messages format (list of dicts)
         history = []
         for msg in state.conversation_history:
-            history.append({
-                "role": msg.get("role", "user"),
-                "content": msg.get("content", "")
-            })
+            history.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
 
         state_dict = state.model_dump()
 
@@ -147,16 +156,15 @@ def load_state_for_user(user_id: str):
         export_history = []
         for i in range(0, len(history) - 1, 2):
             if i + 1 < len(history):
-                export_history.append((
-                    history[i].get("content", ""),
-                    history[i + 1].get("content", "")
-                ))
+                export_history.append(
+                    (history[i].get("content", ""), history[i + 1].get("content", ""))
+                )
 
         export_data = {
             "user_id": user_id,
             "exported_at": datetime.now().isoformat(),
             "conversation": export_history,
-            "state": state.model_dump()
+            "state": state.model_dump(),
         }
         export_json = json.dumps(export_data, indent=2, ensure_ascii=False)
 
@@ -165,7 +173,7 @@ def load_state_for_user(user_id: str):
         return [], {"status": "No saved state for this user"}, ""
 
 
-def export_to_file(export_json: str, user_id: str) -> str:
+def export_to_file(export_json: str, user_id: str) -> str | None:
     """
     Exports conversation to temporary JSON file.
 
@@ -187,7 +195,7 @@ def export_to_file(export_json: str, user_id: str) -> str:
     temp_dir = Path(tempfile.gettempdir())
     filepath = temp_dir / filename
 
-    with open(filepath, 'w', encoding='utf-8') as f:
+    with open(filepath, "w", encoding="utf-8") as f:
         f.write(export_json)
 
     return str(filepath)
@@ -256,9 +264,14 @@ def evaluate_conversation(export_json: str, priority_filter: str, progress=gr.Pr
         progress(1.0, desc="Done!")
         return formatted
 
+    except LifeCoachError as e:
+        log.error("evaluation_failed", error=str(e))
+        return f"❌ **Evaluation failed:** {str(e)}"
     except Exception as e:
         import traceback
+
         error_detail = traceback.format_exc()
+        log.error("evaluation_unexpected", error=str(e))
         return f"❌ **Evaluation failed:**\n\n```\n{error_detail}\n```"
 
 
@@ -266,10 +279,7 @@ def evaluate_conversation(export_json: str, priority_filter: str, progress=gr.Pr
 # Building Gradio interface
 # ===================================================================
 
-with gr.Blocks(
-    title="Life Coach System",
-    theme=gr.themes.Default()
-) as demo:
+with gr.Blocks(title="Life Coach System", theme=gr.themes.Default()) as demo:
     gr.Markdown("# Life Coach System")
     gr.Markdown("**Features:** Multi-user • Memory State • Leaderboard Evaluation")
 
@@ -278,17 +288,9 @@ with gr.Blocks(
         # LEFT COLUMN: Chat Interface (70%)
         # ===============================================================
         with gr.Column(scale=7):
-            chatbot = gr.Chatbot(
-                type="messages",
-                height=600,
-                show_label=False
-            )
+            chatbot = gr.Chatbot(type="messages", height=600, show_label=False)
 
-            msg = gr.Textbox(
-                placeholder="Message...",
-                lines=2,
-                show_label=False
-            )
+            msg = gr.Textbox(placeholder="Message...", lines=2, show_label=False)
 
             with gr.Row():
                 send_btn = gr.Button("Send", variant="primary", scale=3)
@@ -302,16 +304,15 @@ with gr.Blocks(
 
             user_id_input = gr.Textbox(
                 label="User ID",
-                value=Config.DEFAULT_USER_ID,
+                value=settings.default_user_id,
                 placeholder="Enter your ID",
-                info="Each user has independent state"
+                info="Each user has independent state",
             )
 
             # Memory State (collapsed)
             with gr.Accordion("🧠 Memory State", open=False):
                 state_viewer = gr.JSON(
-                    label="Session State",
-                    value={"status": "No state - start conversation"}
+                    label="Session State", value={"status": "No state - start conversation"}
                 )
 
             # Export (collapsed)
@@ -321,17 +322,14 @@ with gr.Blocks(
                 export_data = gr.Textbox(
                     label="Export data (JSON)",
                     lines=1,
-                    visible=False  # Hidden field for storing JSON
+                    visible=False,  # Hidden field for storing JSON
                 )
 
                 export_btn = gr.Button("📥 Export JSON", size="sm")
 
-                export_file = gr.File(
-                    label="Download",
-                    visible=True
-                )
+                export_file = gr.File(label="Download", visible=True)
 
-            # Leaderboard (collapsed) - NEW
+            # Leaderboard (collapsed)
             with gr.Accordion("📊 Leaderboard", open=False):
                 gr.Markdown("**Evaluate Conversation Quality**")
 
@@ -340,15 +338,12 @@ with gr.Blocks(
                     value="MUST-HAVE",
                     label="Priority Filter",
                     info="Select which criteria to evaluate",
-                    interactive=True
+                    interactive=True,
                 )
 
                 evaluate_btn = gr.Button("🎯 Evaluate", variant="primary", size="sm")
 
-                leaderboard_results = gr.Markdown(
-                    value="*Click 'Evaluate' to see results...*"
-                )
-
+                leaderboard_results = gr.Markdown(value="*Click 'Evaluate' to see results...*")
 
     # ===================================================================
     # Event handlers
@@ -358,44 +353,55 @@ with gr.Blocks(
     send_btn.click(
         fn=interact,
         inputs=[msg, chatbot, user_id_input],
-        outputs=[chatbot, state_viewer, export_data]
+        outputs=[chatbot, state_viewer, export_data],
     ).then(
         lambda: "",  # Clear text field after sending
         None,
-        msg
+        msg,
     )
 
     # Send message (Enter)
     msg.submit(
         fn=interact,
         inputs=[msg, chatbot, user_id_input],
-        outputs=[chatbot, state_viewer, export_data]
+        outputs=[chatbot, state_viewer, export_data],
     ).then(
         lambda: "",  # Clear text field
         None,
-        msg
+        msg,
     )
 
     # Reset conversation
     clear_btn.click(
-        fn=reset_conversation,
-        inputs=[user_id_input],
-        outputs=[chatbot, state_viewer, export_data]
+        fn=reset_conversation, inputs=[user_id_input], outputs=[chatbot, state_viewer, export_data]
     )
 
     # Export conversation to file
-    export_btn.click(
-        fn=export_to_file,
-        inputs=[export_data, user_id_input],
-        outputs=[export_file]
-    )
+    export_btn.click(fn=export_to_file, inputs=[export_data, user_id_input], outputs=[export_file])
 
     # Evaluate conversation
     evaluate_btn.click(
         fn=evaluate_conversation,
         inputs=[export_data, priority_dropdown],
         outputs=[leaderboard_results],
-        show_progress="full"  # Show progress bar and disable button during execution
+        show_progress="full",  # Show progress bar and disable button during execution
+    )
+
+
+def main() -> None:
+    """Entry point for the Life Coach System application."""
+    configure_logging()
+    log.info(
+        "startup",
+        model=settings.model_name,
+        coach_name=settings.coach_name,
+        storage=settings.persistence_backend,
+        debug=settings.debug,
+    )
+    demo.launch(
+        server_name="0.0.0.0",
+        server_port=8080,
+        share=False,  # Set True if you want public link
     )
 
 
@@ -404,18 +410,4 @@ with gr.Blocks(
 # ===================================================================
 
 if __name__ == "__main__":
-    print("=" * 70)
-    print("Life Coach System - MVP")
-    print("=" * 70)
-    print(f"Model: {Config.MODEL_NAME}")
-    print(f"Coach Name: {Config.COACH_NAME}")
-    print(f"Storage: {Config.PERSISTENCE_BACKEND}")
-    print(f"Debug Mode: {Config.DEBUG}")
-    print("=" * 70)
-
-    demo.launch(
-        server_name="0.0.0.0",
-        server_port=8080,
-        share=False  # Set True if you want public link
-    )
-
+    main()

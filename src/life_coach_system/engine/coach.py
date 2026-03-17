@@ -1,14 +1,19 @@
-# -*- coding: utf-8 -*-
 """
 Coach Agent - main coaching agent with Structured Output.
 """
 
-from engine.client import call_llm
-from engine.prompter import SystemPrompter
-from memory.schemas.session_state import SessionState
-from memory.schemas.coach_types import CoachResponseAnalysis, CoachingPhase
-from memory.logic.manager import MemoryManager
-from config import Config
+from life_coach_system._logging import get_logger
+from life_coach_system.config import settings
+from life_coach_system.engine.client import call_llm
+from life_coach_system.engine.prompter import SystemPrompter
+from life_coach_system.memory.logic.manager import MemoryManager
+from life_coach_system.memory.schemas.coach_types import (  # noqa: F401
+    CoachingPhase,
+    CoachResponseAnalysis,
+)
+from life_coach_system.memory.schemas.session_state import SessionState
+
+log = get_logger(__name__)
 
 
 class CoachAgent:
@@ -20,7 +25,7 @@ class CoachAgent:
     - Structured Output (CoachResponseAnalysis) to enforce Chain of Thought
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize CoachAgent."""
         self.memory_manager = MemoryManager()
         self.prompter = SystemPrompter()
@@ -34,25 +39,21 @@ class CoachAgent:
 
         # 2. Retrieve recent message context
         recent_history = self.memory_manager.get_recent_history(
-            state,
-            limit=Config.MAX_HISTORY_MESSAGES
+            state, limit=settings.max_history_messages
         )
 
         # 3. Build system prompt dynamically (inject state from memory)
         system_prompt = self.prompter.build_system_prompt(
             core={
-                "coach_name": Config.COACH_NAME,
+                "coach_name": settings.coach_name,
             },
-            profile={
-                "user_name": state.user_name,
-                "main_goal": state.main_goal
-            },
+            profile={"user_name": state.user_name, "main_goal": state.main_goal},
             session={
-                "phase": getattr(state, 'current_phase', "INTRODUCTION"),
+                "phase": getattr(state, "current_phase", "INTRODUCTION"),
                 "turn_count": len(state.conversation_history) // 2,
-                "detected_emotions": state.detected_emotions
+                "detected_emotions": state.detected_emotions,
             },
-            history=recent_history
+            history=recent_history,
         )
 
         # 4. Prepare message structure for API
@@ -61,10 +62,7 @@ class CoachAgent:
 
         # 5. === STRUCTURED OUTPUT ===
         # Call LLM and expect a specific data model in return
-        response: CoachResponseAnalysis = call_llm(
-            messages,
-            response_model=CoachResponseAnalysis
-        )
+        response: CoachResponseAnalysis = call_llm(messages, response_model=CoachResponseAnalysis)
 
         # 6. === STATE UPDATE ===
         # Map structured response to persistent session memory
@@ -76,11 +74,14 @@ class CoachAgent:
                 "detected_emotions": response.detected_emotions,
                 "question_type": response.question_type.value,
                 "analysis_summary": response.analysis_summary,
-            }
+            },
         )
 
-        if Config.DEBUG:
-            print(f"[CoachAgent] Phase: {response.coaching_phase}")
-            print(f"[CoachAgent] Thoughts: {response.analysis_summary[:50]}...")
+        if settings.debug:
+            log.debug(
+                "coach_response",
+                phase=str(response.coaching_phase),
+                thoughts=response.analysis_summary[:50],
+            )
 
         return response.ai_response, state
