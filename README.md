@@ -17,7 +17,7 @@ flowchart TD
     LLM["LLM API\n(OpenAI + Instructor)"]
     MemoryManager["memory.MemoryManager"]
     SessionState["memory.SessionState\n(Pydantic model)"]
-    Persistence["persistence.InMemoryBackend"]
+    Persistence["persistence.PersistenceBackend\n(InMemory / SQL)"]
 
     User -->|"user message"| AppPy
     AppPy -->|"respond(msg, state)"| CoachAgent
@@ -138,4 +138,5 @@ Key variables:
 | `OPENAI_API_KEY` | API key for your OpenAI-compatible endpoint |
 | `OPENAI_BASE_URL` | Base URL of the LLM API |
 | `MODEL_NAME` | Full model identifier (e.g. `gpt-4o-mini-2024-07-18`) |
+| `DATABASE_URL` | DB connection string (omit for in-memory). SQLite: `sqlite:///sessions.db`, PostgreSQL: `postgresql://user:pass@host/db` | <!-- pragma: allowlist secret -->
 | `DEBUG` | Set to `false` in production for JSON logging |

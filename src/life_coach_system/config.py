@@ -32,8 +32,10 @@ class Settings(BaseSettings):
     coach_name: str = "Jack"
     default_user_id: str = "default_user"
 
-    # Persistence
-    persistence_backend: str = "in_memory"
+    # Persistence — set DATABASE_URL to enable SQL backend
+    # SQLite:      sqlite:///sessions.db
+    # PostgreSQL:  postgresql://user:pass@host:5432/dbname  # pragma: allowlist secret
+    database_url: str | None = None
 
     # Conversation limits (context window)
     max_history_messages: int = 10
