@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "life-coach-system"
 version = "0.1.0"
@@ -5,13 +9,31 @@ description = "AI-powered life coaching application with structured output and L
 requires-python = ">=3.10"
 
 dependencies = [
-    "gradio>=4.0,<6.0",
     "openai>=1.0,<2.0",
     "instructor>=0.6",
     "pydantic>=2.0,<3.0",
+    "pydantic-settings>=2.0,<3.0",
     "jinja2>=3.1,<4.0",
     "python-dotenv>=1.0,<2.0",
+    "structlog>=24.0,<26.0",
+    "fastapi>=0.115,<1.0",
+    "uvicorn[standard]>=0.30,<1.0",
+    "sqlalchemy>=2.0,<3.0",
+    "authlib>=1.3,<2.0",
+    "PyJWT>=2.8,<3.0",
+    "httpx>=0.27,<1.0",
+    "itsdangerous>=2.1,<3.0",
 ]
+
+[project.optional-dependencies]
+postgres = ["psycopg[binary]>=3.1,<4.0"]
+
+[project.scripts]
+life-coach-dev = "life_coach_system.dev_ui:main"
+life-coach-api = "life_coach_system.api.app:run"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/life_coach_system"]
 
 [dependency-groups]
 dev = [
@@ -19,6 +41,9 @@ dev = [
     "ruff>=0.4",
     "mypy>=1.10",
     "pre-commit>=3.7",
+    "pylint>=3.0",
+    "httpx>=0.27",
+    "gradio>=4.0,<6.0",
 ]
 
 [tool.ruff]
@@ -32,3 +57,6 @@ select = ["E", "F", "I", "UP"]
 python_version = "3.10"
 strict = false
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
