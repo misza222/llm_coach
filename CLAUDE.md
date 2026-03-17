@@ -9,7 +9,8 @@ AI-powered life coaching application with a Gradio web UI. A coach named "Jacek"
 ## Running
 
 ```bash
-uv run python dev_ui.py  # Gradio dev UI on 0.0.0.0:8080
+uv run life-coach-api   # FastAPI + React UI on localhost:8000
+uv run python dev_ui.py # Gradio dev UI on 0.0.0.0:8080 (dev-only)
 ```
 
 ## Architecture
@@ -25,6 +26,7 @@ User Message → dev_ui.py (Dev UI) → CoachAgent.respond()
 ```
 
 **Key layers:**
+- `api/` — FastAPI REST API (`create_app()` factory, routes, schemas, DI via `dependencies.py`). Serves React frontend as static files from `frontend/dist/`.
 - `engine/` — LLM client (OpenAI + Instructor), CoachAgent orchestration, Jinja2 prompt builder
 - `memory/schemas/` — Pydantic models: `SessionState` (root state), `CoachResponseAnalysis` (structured LLM output with CoT), `CoachingPhase`/`QuestionType` enums
 - `memory/logic/` — `MemoryManager` updates state from LLM output, manages conversation history window
@@ -33,6 +35,15 @@ User Message → dev_ui.py (Dev UI) → CoachAgent.respond()
 - `utils/` — Leaderboard markdown parser + LLM-as-Judge evaluator (dynamically creates Pydantic models from parsed criteria)
 - `skills/` — Stub modules (action, context, exploration, safety) for future expansion
 - `dev_ui.py` — Gradio dev UI with global singletons (coach, storage, memory_manager); in-memory state, not for production
+
+**API endpoints:**
+- `GET /api/v1/health` — liveness check
+- `POST /api/v1/chat` — send message, get coach reply (`ChatRequest` → `ChatResponse`)
+- `GET /api/v1/sessions/{user_id}` — load session state
+- `POST /api/v1/sessions/{user_id}/reset` — clear session
+- `GET /api/v1/sessions/{user_id}/export` — download session JSON
+
+**Frontend:** React + TypeScript + Tailwind in `frontend/`. Vite dev server proxies `/api` to `:8000`. Built output in `frontend/dist/` is served by FastAPI as static files.
 
 **Evaluation flow:** `leaderboard_card_coach.md` → `parse_leaderboard_card()` → `create_evaluation_model()` (dynamic Pydantic) → `call_llm()` → formatted results
 
