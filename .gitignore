@@ -49,6 +49,9 @@ Thumbs.db
 frontend/node_modules/
 frontend/dist/
 
+# SQLite databases
+*.db
+
 # Exports / generated files
 exports/
 *.json.bak
