@@ -1,0 +1,34 @@
+[project]
+name = "life-coach-system"
+version = "0.1.0"
+description = "AI-powered life coaching application with structured output and LLM-as-Judge evaluation"
+requires-python = ">=3.10"
+
+dependencies = [
+    "gradio>=4.0,<6.0",
+    "openai>=1.0,<2.0",
+    "instructor>=0.6",
+    "pydantic>=2.0,<3.0",
+    "jinja2>=3.1,<4.0",
+    "python-dotenv>=1.0,<2.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "pre-commit>=3.7",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = false
+ignore_missing_imports = true
