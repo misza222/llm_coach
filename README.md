@@ -11,7 +11,7 @@ An AI-powered life coaching application with a Gradio web UI. The coach conducts
 ```mermaid
 flowchart TD
     User["User (browser)"]
-    AppPy["app.py\n(Gradio UI)"]
+    AppPy["dev_ui.py\n(Dev UI)"]
     CoachAgent["engine.CoachAgent"]
     SystemPrompter["engine.SystemPrompter\n(Jinja2 templates)"]
     LLM["LLM API\n(OpenAI + Instructor)"]
@@ -55,7 +55,7 @@ flowchart TD
 
 ### Diagram narrative
 
-**Message flow:** The user sends a message through the Gradio UI (`app.py`). `CoachAgent.respond()` first adds the message to the conversation history via `MemoryManager`, then builds a Jinja2 system prompt with current session context. The prompt and recent history are sent to the LLM via `call_llm()`, which returns a structured `CoachResponseAnalysis` model (Chain of Thought enforced). `MemoryManager.update_from_output()` maps the structured response back into `SessionState` (phase, emotions, question counters). The final text response and updated state are returned to the UI, which persists the state.
+**Message flow:** The user sends a message through the dev UI (`dev_ui.py`). `CoachAgent.respond()` first adds the message to the conversation history via `MemoryManager`, then builds a Jinja2 system prompt with current session context. The prompt and recent history are sent to the LLM via `call_llm()`, which returns a structured `CoachResponseAnalysis` model (Chain of Thought enforced). `MemoryManager.update_from_output()` maps the structured response back into `SessionState` (phase, emotions, question counters). The final text response and updated state are returned to the UI, which persists the state.
 
 **Evaluation flow:** The user triggers evaluation in the Leaderboard tab. `parse_leaderboard_card()` reads the 14 criteria from the markdown file; `filter_checks_by_priority()` narrows the list. `create_evaluation_model()` dynamically builds a Pydantic model with two fields per criterion (`{id}_reasoning` + `{id}_passed`). The judge LLM evaluates the conversation against all criteria and returns a structured verdict, which is formatted as markdown for display.
 
@@ -63,13 +63,13 @@ flowchart TD
 
 ## How to run
 
-### Application
+### Dev UI
 
 ```bash
-uv run python app.py
+uv run python dev_ui.py
 ```
 
-The Gradio UI starts at `http://0.0.0.0:8080`.
+The Gradio dev UI starts at `http://0.0.0.0:8080`. This is a development/testing interface — uses in-memory state and exposes evaluation tooling. Not for production use.
 
 ### Tests
 

@@ -1,8 +1,9 @@
 """
-Gradio UI for Life Coach System.
+Development UI for the Life Coach System (Gradio).
 
-This file contains the complete user interface for the coaching system.
-Run: uv run python app.py
+This is a dev/testing interface — uses in-memory state and exposes debug tooling.
+Not intended for production use.
+Run: uv run python dev_ui.py
 """
 
 import json
@@ -389,7 +390,7 @@ with gr.Blocks(title="Life Coach System", theme=gr.themes.Default()) as demo:
 
 
 def main() -> None:
-    """Entry point for the Life Coach System application."""
+    """Entry point for the Life Coach System dev UI."""
     configure_logging()
     log.info(
         "startup",

@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.scripts]
-life-coach = "life_coach_system.app:main"
+life-coach-dev = "life_coach_system.dev_ui:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/life_coach_system"]
