@@ -40,10 +40,10 @@ def chat(
     is_anonymous = current_user is None
 
     # Use authenticated user_id if available, otherwise the client-provided one
-    if is_anonymous:
-        user_id = request.user_id
-    else:
+    if current_user is not None:
         user_id = current_user["sub"]
+    else:
+        user_id = request.user_id
 
     # Anonymous message gating
     remaining_messages: int | None = None
@@ -57,8 +57,9 @@ def chat(
         remaining_messages = settings.max_anonymous_messages - current_count - 1
 
     # Load or create session state
-    if storage.exists(user_id):
-        state = SessionState(**storage.load(user_id))
+    stored = storage.load(user_id)
+    if stored is not None:
+        state = SessionState(**stored)
     else:
         state = memory_manager.create_empty_state(user_id)
 

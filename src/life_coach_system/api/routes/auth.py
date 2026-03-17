@@ -3,6 +3,7 @@ OAuth login/callback, auth status, and logout routes.
 """
 
 import json
+from typing import Any
 
 from fastapi import APIRouter, Depends, Request, Response
 from starlette.responses import RedirectResponse
@@ -134,7 +135,7 @@ def logout() -> Response:
 
 
 async def _extract_user_info(
-    client: object, token: dict, provider: str
+    client: Any, token: dict, provider: str
 ) -> tuple[str | None, str | None, str | None, str]:
     """Extract email, name, avatar_url, and provider_id from OAuth token/userinfo."""
     if provider == "google":

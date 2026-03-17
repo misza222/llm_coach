@@ -53,7 +53,7 @@ def create_evaluation_model(checks: list[CheckDefinition]) -> type[BaseModel]:
         )
 
         # Field 2: passed (Binary verdict)
-        fields[f"{prefix}_passed"] = (
+        fields[f"{prefix}_passed"] = (  # type: ignore[assignment]
             bool,
             Field(
                 ...,
@@ -66,7 +66,7 @@ def create_evaluation_model(checks: list[CheckDefinition]) -> type[BaseModel]:
         )
 
     # Create model dynamically
-    return create_model("DynamicEvaluationResult", **fields)
+    return create_model("DynamicEvaluationResult", **fields)  # type: ignore[call-overload]
 
 
 def evaluate_conversation(
