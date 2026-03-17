@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 """
 Memory Manager - manages coaching session state.
 """
 
-from memory.schemas.session_state import SessionState
-import copy
+from life_coach_system.memory.schemas.session_state import SessionState
+
 
 class MemoryManager:
     """
@@ -13,11 +12,7 @@ class MemoryManager:
 
     def create_empty_state(self, user_id: str) -> SessionState:
         """Initialize empty state for a new user."""
-        return SessionState(
-            user_id=user_id,
-            user_name=None,
-            conversation_history=[]
-        )
+        return SessionState(user_id=user_id, user_name=None, conversation_history=[])
 
     def update_from_output(self, state: SessionState, coach_output: dict) -> SessionState:
         """
@@ -55,22 +50,16 @@ class MemoryManager:
         # Note: key may be 'ai_response' or 'response' depending on the model
         final_text = coach_output.get("ai_response") or coach_output.get("response")
         if final_text:
-            updated_state.conversation_history.append({
-                "role": "assistant",
-                "content": final_text
-            })
+            updated_state.conversation_history.append({"role": "assistant", "content": final_text})
 
         return updated_state
 
     def add_user_message(self, state: SessionState, message: str) -> SessionState:
         """Add a user message to conversation history."""
         updated_state = state.model_copy(deep=True)
-        updated_state.conversation_history.append({
-            "role": "user",
-            "content": message
-        })
+        updated_state.conversation_history.append({"role": "user", "content": message})
         return updated_state
 
-    def get_recent_history(self, state: SessionState, limit: int = 10) -> list[dict]:
+    def get_recent_history(self, state: SessionState, *, limit: int = 10) -> list[dict]:
         """Retrieve the last N messages as context."""
         return state.conversation_history[-limit:]
