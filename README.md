@@ -63,7 +63,33 @@ flowchart TD
 
 ## How to run
 
-### Dev UI
+### Client UI (FastAPI + React)
+
+```bash
+# 1. Build the frontend (one-time, or after frontend changes)
+cd frontend && npm install && npm run build && cd ..
+
+# 2. Start the API server (serves both API and built frontend)
+uv run life-coach-api
+```
+
+The app is available at `http://localhost:8000`.
+
+#### Frontend development
+
+For hot-reload during frontend work, run the API and Vite dev server separately:
+
+```bash
+# Terminal 1 — API backend
+uv run life-coach-api
+
+# Terminal 2 — Vite dev server (proxies /api to :8000)
+cd frontend && npm run dev
+```
+
+The Vite dev server runs at `http://localhost:5173`.
+
+### Dev UI (Gradio)
 
 ```bash
 uv run python dev_ui.py
