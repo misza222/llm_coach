@@ -1,6 +1,7 @@
 .PHONY: help install install-dev frontend-install frontend-build \
        api dev dev-ui dev-frontend \
        test lint format typecheck check \
+       docker-build docker-run \
        clean
 
 help: ## Show this help
@@ -58,6 +59,16 @@ typecheck: ## Run mypy type checker
 	uv run mypy src/
 
 check: lint typecheck test ## Run lint + typecheck + tests
+
+# ---------------------------------------------------------------------------
+# Docker
+# ---------------------------------------------------------------------------
+
+docker-build: ## Build Docker image
+	docker build -t life-coach-system .
+
+docker-run: ## Run Docker container (pass OPENAI_API_KEY etc. via --env-file)
+	docker run --rm -p 8000:8000 --env-file .env life-coach-system
 
 # ---------------------------------------------------------------------------
 # Cleanup
