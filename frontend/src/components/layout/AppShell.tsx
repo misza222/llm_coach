@@ -16,7 +16,7 @@ export function AppShell({ children }: AppShellProps) {
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-semibold text-gray-900">Life Coach</h1>
           <a
-            href="/devui"
+            href="/devui/"
             className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
           >
             Dev UI
