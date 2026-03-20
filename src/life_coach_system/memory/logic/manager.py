@@ -7,7 +7,10 @@ from datetime import datetime
 from life_coach_system.memory.schemas.session_state import SessionState
 
 _MAX_TITLE_LENGTH = 60
-_DEFAULT_TITLE = "First session"
+# Placeholder replaced by auto-generated title once user starts talking
+_DEFAULT_TITLE = "New session"
+# Fixed title for a user's very first session — never auto-replaced
+_FIRST_SESSION_TITLE = "Introduction"
 
 
 class MemoryManager:
@@ -15,13 +18,21 @@ class MemoryManager:
     Manages memory updates based on coach responses.
     """
 
-    def create_empty_state(self, user_id: str) -> SessionState:
-        """Initialize empty state for a new session with a placeholder title."""
+    def create_empty_state(self, user_id: str, *, is_first: bool = False) -> SessionState:
+        """Initialize empty state for a new session.
+
+        Args:
+            user_id: Owner of the session.
+            is_first: When True, uses a fixed "Introduction" title that is never
+                auto-replaced. Subsequent sessions use a placeholder title that
+                gets replaced once the user starts talking.
+        """
+        title = _FIRST_SESSION_TITLE if is_first else _DEFAULT_TITLE
         return SessionState(
             user_id=user_id,
             user_name=None,
             conversation_history=[],
-            title=_DEFAULT_TITLE,
+            title=title,
         )
 
     def update_from_output(

@@ -38,10 +38,10 @@ def test_get_nonexistent_session_returns_404(client: TestClient) -> None:
 
 
 def test_create_new_session(client: TestClient) -> None:
-    # Chat to create initial session
+    # Chat to create initial session with messages
     client.post("/api/v1/chat", json={"user_id": "user-s2", "message": "Hi"})
 
-    # Create new session (auto-completes old one)
+    # Create new session (auto-completes old one because it has messages)
     response = client.post("/api/v1/sessions/user-s2/new")
     assert response.status_code == 200
     data = response.json()
@@ -53,6 +53,37 @@ def test_create_new_session(client: TestClient) -> None:
     assert len(sessions) == 2
     statuses = {s["status"] for s in sessions}
     assert statuses == {"ACTIVE", "COMPLETED"}
+
+
+def test_new_session_returns_existing_when_active_session_is_empty(
+    client: TestClient,
+) -> None:
+    """Clicking New Session on an empty session returns the same session, not a new one."""
+    # Create first session (no messages)
+    first = client.post("/api/v1/sessions/user-s2b/new").json()
+    first_id = first["session_id"]
+
+    # Requesting another new session should return the same empty session
+    second = client.post("/api/v1/sessions/user-s2b/new").json()
+    assert second["session_id"] == first_id
+
+    # Still only one session
+    sessions = client.get("/api/v1/sessions/user-s2b").json()["sessions"]
+    assert len(sessions) == 1
+
+
+def test_first_session_has_introduction_title(client: TestClient) -> None:
+    """First session created for a user gets the fixed 'Introduction' title."""
+    session = client.post("/api/v1/sessions/user-s2c/new").json()
+    assert session["title"] == "Introduction"
+
+
+def test_subsequent_session_has_placeholder_title(client: TestClient) -> None:
+    """Second session (after user has chatted) starts with 'New session' placeholder."""
+    # Chat to give first session some messages, then create a second session
+    client.post("/api/v1/chat", json={"user_id": "user-s2d", "message": "Hi"})
+    session = client.post("/api/v1/sessions/user-s2d/new").json()
+    assert session["title"] == "New session"
 
 
 def test_end_session(client: TestClient) -> None:

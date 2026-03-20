@@ -31,7 +31,14 @@ export function useChat(userId: string, sessionId: string | null) {
   // Track the session_id returned by the server (for auto-created sessions)
   const [resolvedSessionId, setResolvedSessionId] = useState<string | null>(sessionId)
 
-  // Load existing session when sessionId changes
+  // Bump this to force a re-fetch of the current session (e.g. after ending it)
+  const [fetchKey, setFetchKey] = useState(0)
+
+  const reload = useCallback(() => {
+    setFetchKey((k) => k + 1)
+  }, [])
+
+  // Load existing session when sessionId changes or reload() is called
   useEffect(() => {
     if (!sessionId) {
       setHistory([])
@@ -63,7 +70,7 @@ export function useChat(userId: string, sessionId: string | null) {
     return () => {
       cancelled = true
     }
-  }, [userId, sessionId])
+  }, [userId, sessionId, fetchKey])
 
   const isCompleted = meta.status === 'COMPLETED'
 
@@ -120,6 +127,7 @@ export function useChat(userId: string, sessionId: string | null) {
     isSending,
     error,
     send,
+    reload,
     loginRequired,
     remainingMessages,
     isClosing,

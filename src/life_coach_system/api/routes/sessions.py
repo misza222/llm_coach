@@ -77,17 +77,38 @@ def create_new_session(
     storage: PersistenceBackend = Depends(get_storage),
     memory_manager: MemoryManager = Depends(get_memory_manager),
 ) -> SessionResponse:
-    """Create a new session, completing the current active one if it exists."""
-    # Complete any active session
+    """Create a new session, completing the current active one if it exists.
+
+    If the active session has no messages yet it is returned as-is to prevent
+    accumulating empty sessions when the user clicks "New Session" repeatedly.
+    """
+    existing_sessions = storage.list_sessions(user_id)
+
+    # Return the active session unchanged if it has no conversation history yet
     active = storage.find_active_session(user_id)
     if active is not None:
         active_state = SessionState(**active)
+        if not active_state.conversation_history:
+            return SessionResponse(
+                session_id=active_state.session_id,
+                user_id=active_state.user_id,
+                user_name=active_state.user_name,
+                current_phase=active_state.current_phase,
+                main_goal=active_state.main_goal,
+                status=active_state.status,
+                title=active_state.title,
+                detected_emotions=active_state.detected_emotions,
+                history=[],
+                created_at=active_state.created_at,
+            )
+        # Active session has messages — complete it before creating a new one
         completed = memory_manager.complete_session(active_state)
         storage.save(completed.session_id, completed.model_dump())
         log.info("session_auto_completed", session_id=completed.session_id)
 
-    # Create new session
-    state = memory_manager.create_empty_state(user_id)
+    # First-ever session for this user gets a fixed "Introduction" title
+    is_first = len(existing_sessions) == 0
+    state = memory_manager.create_empty_state(user_id, is_first=is_first)
     storage.save(state.session_id, state.model_dump())
     log.info("session_created", user_id=user_id, session_id=state.session_id)
 

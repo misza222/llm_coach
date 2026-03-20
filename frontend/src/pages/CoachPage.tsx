@@ -24,6 +24,7 @@ export function CoachPage() {
     isSending,
     error,
     send,
+    reload: reloadSession,
     loginRequired,
     remainingMessages,
     isClosing,
@@ -36,11 +37,13 @@ export function CoachPage() {
 
   const handleEndSession = async () => {
     await endCurrentSession()
+    reloadSession()
     await refreshList()
   }
 
   const handleClosingConfirm = async () => {
     await endCurrentSession()
+    reloadSession()
     await refreshList()
   }
 

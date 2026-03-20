@@ -26,15 +26,43 @@ def test_add_user_message_appends_message_with_role_user(
 def test_add_user_message_replaces_default_title_with_first_message(
     manager: MemoryManager, empty_state: SessionState
 ) -> None:
-    """First user message replaces the default 'First session' placeholder title."""
+    """First user message replaces the None/placeholder title."""
     updated = manager.add_user_message(empty_state, "I want to improve my career")
     assert updated.title == "I want to improve my career"
 
 
-def test_create_empty_state_has_default_title(manager: MemoryManager) -> None:
-    """create_empty_state() sets title to 'First session' so sidebar shows it immediately."""
+def test_create_empty_state_has_default_placeholder_title(manager: MemoryManager) -> None:
+    """create_empty_state() sets title to 'New session' placeholder for subsequent sessions."""
     state = manager.create_empty_state("user-1")
-    assert state.title == "First session"
+    assert state.title == "New session"
+
+
+def test_create_empty_state_with_is_first_uses_introduction_title(
+    manager: MemoryManager,
+) -> None:
+    """create_empty_state(is_first=True) sets a fixed 'Introduction' title."""
+    state = manager.create_empty_state("user-1", is_first=True)
+    assert state.title == "Introduction"
+
+
+def test_introduction_title_is_not_replaced_by_first_message(
+    manager: MemoryManager,
+) -> None:
+    """The 'Introduction' title is never auto-replaced by user message content."""
+    state = manager.create_empty_state("user-1", is_first=True)
+    updated = manager.add_user_message(state, "I want to grow as a leader")
+    assert updated.title == "Introduction"
+
+
+def test_introduction_title_is_not_replaced_by_main_goal(
+    manager: MemoryManager,
+) -> None:
+    """The 'Introduction' title is never auto-replaced when main_goal is extracted."""
+    state = manager.create_empty_state("user-1", is_first=True)
+    updated, _ = manager.update_from_output(
+        state, {"main_goal": "Become a better leader", "response": "Great."}
+    )
+    assert updated.title == "Introduction"
 
 
 def test_update_from_output_updates_coaching_phase(
