@@ -6,7 +6,7 @@ which navigates to the app, clears localStorage, and reloads so every test
 begins with a fresh anonymous user and a single "Introduction" session.
 
 Run with:
-    uv run pytest -m e2e -v
+    uv run pytest tests/e2e/ -v
 
 The frontend must be built before running:
     cd frontend && npm run build
@@ -15,64 +15,128 @@ The frontend must be built before running:
 import pytest
 from playwright.sync_api import Page, expect
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def end_session(page: Page) -> None:
+    """Click End Session and confirm — goes through the two-step confirmation."""
+    page.get_by_test_id("end-session-btn").click()
+    page.get_by_test_id("confirm-end-btn").click()
+    page.wait_for_load_state("networkidle")
+
+
+# ---------------------------------------------------------------------------
+# Session sidebar tests
+# ---------------------------------------------------------------------------
+
 
 @pytest.mark.e2e
 def test_first_visit_shows_introduction_session(page: Page) -> None:
     """A brand-new user sees exactly one session named 'Introduction' in the sidebar."""
-    # fresh_browser_state already navigated and waited for network idle
     items = page.get_by_test_id("session-item")
     expect(items).to_have_count(1)
     expect(items.first).to_contain_text("Introduction")
 
 
 @pytest.mark.e2e
-def test_new_session_button_on_empty_session_is_idempotent(page: Page) -> None:
-    """Clicking New Session multiple times on an empty session does not create duplicates."""
-    page.get_by_test_id("new-session-btn").click()
-    page.wait_for_load_state("networkidle")
-    page.get_by_test_id("new-session-btn").click()
-    page.wait_for_load_state("networkidle")
+def test_new_session_button_not_visible_during_active_session(page: Page) -> None:
+    """'New Session' is hidden while a session is active — only 'End Session' is shown."""
+    expect(page.get_by_test_id("end-session-btn")).to_be_visible()
+    expect(page.get_by_test_id("new-session-btn")).not_to_be_visible()
 
-    # Still only one session — the empty Introduction session was re-used each time
-    items = page.get_by_test_id("session-item")
-    expect(items).to_have_count(1)
-    expect(items.first).to_contain_text("Introduction")
+
+# ---------------------------------------------------------------------------
+# End Session confirmation tests
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.e2e
-def test_end_session_shows_completion_banner(page: Page) -> None:
-    """Clicking End Session marks the session done and shows the completion banner."""
+def test_end_session_shows_confirmation_ui(page: Page) -> None:
+    """Clicking End Session shows inline confirmation buttons instead of ending immediately."""
     page.get_by_test_id("end-session-btn").click()
 
-    # The completion banner must appear and the End Session button must disappear
+    expect(page.get_by_test_id("confirm-end-btn")).to_be_visible()
+    expect(page.get_by_test_id("cancel-end-btn")).to_be_visible()
+    # The original End Session button is replaced by the confirmation UI
+    expect(page.get_by_test_id("end-session-btn")).not_to_be_visible()
+
+
+@pytest.mark.e2e
+def test_cancel_end_session_restores_end_button(page: Page) -> None:
+    """Cancelling the confirmation brings back the End Session button without ending."""
+    page.get_by_test_id("end-session-btn").click()
+    page.get_by_test_id("cancel-end-btn").click()
+
+    # Session is still active
+    expect(page.get_by_test_id("end-session-btn")).to_be_visible()
+    expect(page.get_by_test_id("session-completed-banner")).not_to_be_visible()
+
+
+@pytest.mark.e2e
+def test_end_session_confirmed_shows_completion_banner(page: Page) -> None:
+    """Confirming End Session marks the session done and shows the completion banner."""
+    end_session(page)
+
     expect(page.get_by_test_id("session-completed-banner")).to_be_visible()
     expect(page.get_by_test_id("end-session-btn")).not_to_be_visible()
 
 
 @pytest.mark.e2e
 def test_end_session_marks_session_done_in_sidebar(page: Page) -> None:
-    """After ending a session the sidebar shows the 'done' badge on that session."""
-    page.get_by_test_id("end-session-btn").click()
-    page.wait_for_load_state("networkidle")
+    """After confirming End Session the sidebar shows the 'done' badge."""
+    end_session(page)
 
-    # The session item should now show the 'done' text rendered alongside the title
     expect(page.get_by_test_id("session-item").first).to_contain_text("done")
 
 
 @pytest.mark.e2e
-def test_start_new_session_after_completion_creates_fresh_session(page: Page) -> None:
-    """The 'Start a new session' link in the completion banner opens a new empty session."""
-    # End the current session
-    page.get_by_test_id("end-session-btn").click()
-    expect(page.get_by_test_id("session-completed-banner")).to_be_visible()
+def test_end_session_replaces_end_button_with_new_session_button(page: Page) -> None:
+    """After ending, 'New Session' appears in place of 'End Session'."""
+    end_session(page)
 
-    # Start a new session via the banner link
-    page.get_by_test_id("start-new-session-link").click()
+    expect(page.get_by_test_id("new-session-btn")).to_be_visible()
+    expect(page.get_by_test_id("end-session-btn")).not_to_be_visible()
+
+
+# ---------------------------------------------------------------------------
+# New Session flow tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.e2e
+def test_new_session_after_ending_creates_fresh_session(page: Page) -> None:
+    """Clicking New Session after ending opens a fresh chat and adds a second sidebar entry."""
+    end_session(page)
+    page.get_by_test_id("new-session-btn").click()
     page.wait_for_load_state("networkidle")
 
-    # Banner should be gone and we should have 2 sessions in the sidebar
     expect(page.get_by_test_id("session-completed-banner")).not_to_be_visible()
     expect(page.get_by_test_id("session-item")).to_have_count(2)
+    # New session is active again — End Session button is back
+    expect(page.get_by_test_id("end-session-btn")).to_be_visible()
+
+
+@pytest.mark.e2e
+def test_new_session_after_chat_gives_empty_panel_and_two_sessions(page: Page) -> None:
+    """After chatting, ending, and starting a new session: panel clears, sidebar has two entries."""
+    page.get_by_test_id("chat-input").fill("Hello")
+    page.get_by_test_id("send-btn").click()
+    page.wait_for_load_state("networkidle")
+    expect(page.get_by_text("Coach: Hello")).to_be_visible()
+
+    end_session(page)
+    page.get_by_test_id("new-session-btn").click()
+    page.wait_for_load_state("networkidle")
+
+    expect(page.get_by_text("Start a conversation with your coach.")).to_be_visible()
+    expect(page.get_by_test_id("session-item")).to_have_count(2)
+
+
+# ---------------------------------------------------------------------------
+# Session title tests
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.e2e
@@ -82,23 +146,19 @@ def test_first_session_title_stays_introduction_after_chat(page: Page) -> None:
     page.get_by_test_id("send-btn").click()
     page.wait_for_load_state("networkidle")
 
-    # Title must remain "Introduction" — it is a fixed label, not an auto-generated one
     expect(page.get_by_test_id("session-item").first).to_contain_text("Introduction")
 
 
 @pytest.mark.e2e
 def test_second_session_title_updates_from_first_message(page: Page) -> None:
     """A second session starts as 'New session' and gets titled from the first user message."""
-    # Complete the Introduction session and start a fresh one
-    page.get_by_test_id("end-session-btn").click()
-    expect(page.get_by_test_id("session-completed-banner")).to_be_visible()
-    page.get_by_test_id("start-new-session-link").click()
+    end_session(page)
+    page.get_by_test_id("new-session-btn").click()
     page.wait_for_load_state("networkidle")
 
-    # The new session has the placeholder title
+    # Newest session (first in list) has the placeholder title
     expect(page.get_by_test_id("session-item").first).to_contain_text("New session")
 
-    # Send a message — the placeholder title should be replaced
     page.get_by_test_id("chat-input").fill("I want to become a better leader")
     page.get_by_test_id("send-btn").click()
     page.wait_for_load_state("networkidle")
@@ -107,25 +167,3 @@ def test_second_session_title_updates_from_first_message(page: Page) -> None:
     expect(page.get_by_test_id("session-item").first).to_contain_text(
         "I want to become a better leader"
     )
-
-
-@pytest.mark.e2e
-def test_new_session_after_chat_gives_empty_chat_and_two_sessions(page: Page) -> None:
-    """After chatting, creating a new session clears the chat panel and adds a second session."""
-    # Chat once to populate the Introduction session
-    page.get_by_test_id("chat-input").fill("Hello")
-    page.get_by_test_id("send-btn").click()
-    page.wait_for_load_state("networkidle")
-
-    # Confirm there is a coach reply in the chat panel
-    expect(page.get_by_text("Coach: Hello")).to_be_visible()
-
-    # Create a new session (the Introduction session now has messages, so it gets completed)
-    page.get_by_test_id("new-session-btn").click()
-    page.wait_for_load_state("networkidle")
-
-    # Chat panel should be empty (the placeholder text is shown)
-    expect(page.get_by_text("Start a conversation with your coach.")).to_be_visible()
-
-    # Sidebar should list two sessions
-    expect(page.get_by_test_id("session-item")).to_have_count(2)

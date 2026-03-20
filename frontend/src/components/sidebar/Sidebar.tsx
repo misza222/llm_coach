@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import type { SessionSummary } from '../../api/types'
 
 interface SidebarProps {
@@ -40,6 +41,22 @@ export function Sidebar({
   remainingMessages,
   isAuthenticated,
 }: SidebarProps) {
+  const [isConfirming, setIsConfirming] = useState(false)
+
+  // Reset confirmation state whenever the active session changes
+  useEffect(() => {
+    setIsConfirming(false)
+  }, [activeSessionId, isCompleted])
+
+  const handleEndClick = () => setIsConfirming(true)
+
+  const handleConfirmEnd = () => {
+    setIsConfirming(false)
+    onEndSession()
+  }
+
+  const isSessionActive = !!activeSessionId && !isCompleted
+
   return (
     <aside className="flex w-64 flex-col border-l border-gray-200 bg-gray-50 p-4">
       {/* Guest message count */}
@@ -83,15 +100,6 @@ export function Sidebar({
         )}
       </div>
 
-      <button
-        data-testid="new-session-btn"
-        onClick={onNewSession}
-        className="mb-4 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium
-                   text-gray-700 hover:bg-gray-100 transition-colors"
-      >
-        New Session
-      </button>
-
       {/* Current session info */}
       <h2 className="mb-4 text-sm font-semibold text-gray-500 uppercase tracking-wide">
         Session Info
@@ -130,19 +138,50 @@ export function Sidebar({
         </div>
       )}
 
-      {/* End session button */}
-      {!isCompleted && activeSessionId && (
-        <div className="mt-auto">
+      {/* Session action button — mutually exclusive: End (active) vs New (completed/none) */}
+      <div className="mt-auto">
+        {isSessionActive ? (
+          isConfirming ? (
+            <div className="space-y-2">
+              <p className="text-center text-xs text-gray-500">End this session?</p>
+              <button
+                data-testid="confirm-end-btn"
+                onClick={handleConfirmEnd}
+                className="w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-medium
+                           text-white hover:bg-red-700 transition-colors"
+              >
+                Yes, end it
+              </button>
+              <button
+                data-testid="cancel-end-btn"
+                onClick={() => setIsConfirming(false)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm
+                           font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              data-testid="end-session-btn"
+              onClick={handleEndClick}
+              className="w-full rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium
+                         text-red-600 hover:bg-red-50 transition-colors"
+            >
+              End Session
+            </button>
+          )
+        ) : (
           <button
-            data-testid="end-session-btn"
-            onClick={onEndSession}
-            className="w-full rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium
-                       text-red-600 hover:bg-red-50 transition-colors"
+            data-testid="new-session-btn"
+            onClick={onNewSession}
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium
+                       text-gray-700 hover:bg-gray-100 transition-colors"
           >
-            End Session
+            New Session
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </aside>
   )
 }
