@@ -31,6 +31,12 @@ export function CoachPage() {
     isCompleted,
   } = useChat(userId, activeSessionId)
 
+  const handleSend = async (message: string) => {
+    await send(message)
+    // Refresh the session list so sidebar titles update immediately after chatting
+    await refreshList()
+  }
+
   const handleNewSession = async () => {
     await startNewSession()
   }
@@ -54,9 +60,13 @@ export function CoachPage() {
 
         {/* Completed session banner */}
         {isCompleted && (
-          <div className="bg-gray-100 border-b border-gray-200 px-4 py-3 text-center text-sm text-gray-500">
+          <div
+            data-testid="session-completed-banner"
+            className="bg-gray-100 border-b border-gray-200 px-4 py-3 text-center text-sm text-gray-500"
+          >
             This session has ended.{' '}
             <button
+              data-testid="start-new-session-link"
               onClick={handleNewSession}
               className="text-indigo-600 hover:text-indigo-800 font-medium underline"
             >
@@ -88,7 +98,7 @@ export function CoachPage() {
           <ChatPanel
             history={history}
             isSending={isSending}
-            onSend={isCompleted ? () => {} : send}
+            onSend={isCompleted ? () => {} : handleSend}
           />
         )}
       </div>

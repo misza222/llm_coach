@@ -59,6 +59,7 @@ export function Sidebar({
         {sessionList.map((s) => (
           <button
             key={s.session_id}
+            data-testid="session-item"
             onClick={() => onSelectSession(s.session_id)}
             className={`w-full text-left rounded-lg px-3 py-2 text-xs transition-colors ${
               s.session_id === activeSessionId
@@ -83,6 +84,7 @@ export function Sidebar({
       </div>
 
       <button
+        data-testid="new-session-btn"
         onClick={onNewSession}
         className="mb-4 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium
                    text-gray-700 hover:bg-gray-100 transition-colors"
@@ -132,6 +134,7 @@ export function Sidebar({
       {!isCompleted && activeSessionId && (
         <div className="mt-auto">
           <button
+            data-testid="end-session-btn"
             onClick={onEndSession}
             className="w-full rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium
                        text-red-600 hover:bg-red-50 transition-colors"
