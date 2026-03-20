@@ -14,6 +14,8 @@ def test_chat_returns_coach_reply(client: TestClient) -> None:
     assert data["phase"] == "CONTEXT_GATHERING"
     assert "curiosity" in data["detected_emotions"]
     assert len(data["history"]) == 2  # user + assistant
+    assert "session_id" in data
+    assert data["status"] == "ACTIVE"
 
 
 def test_chat_empty_message_returns_422(client: TestClient) -> None:
@@ -40,6 +42,13 @@ def test_chat_preserves_history_across_turns(client: TestClient) -> None:
     assert len(data["history"]) == 4
 
 
+def test_chat_returns_same_session_id_across_turns(client: TestClient) -> None:
+    """Multiple messages from the same user use the same session."""
+    r1 = client.post("/api/v1/chat", json={"user_id": "user-3", "message": "First"})
+    r2 = client.post("/api/v1/chat", json={"user_id": "user-3", "message": "Second"})
+    assert r1.json()["session_id"] == r2.json()["session_id"]
+
+
 def test_chat_llm_error_returns_502(client: TestClient) -> None:
     """When the coach raises LLMError the API returns 502."""
     from life_coach_system.api.dependencies import get_coach
@@ -47,7 +56,7 @@ def test_chat_llm_error_returns_502(client: TestClient) -> None:
     from life_coach_system.memory.schemas.session_state import SessionState
 
     class BrokenCoach:
-        def respond(self, user_message: str, state: SessionState) -> tuple[str, SessionState]:
+        def respond(self, user_message: str, state: SessionState) -> tuple[str, SessionState, bool]:
             raise LLMError("upstream timeout")
 
     app = client.app

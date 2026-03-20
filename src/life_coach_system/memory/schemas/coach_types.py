@@ -9,6 +9,13 @@ from enum import Enum
 from pydantic import BaseModel, Field
 
 
+class SessionStatus(str, Enum):
+    """Lifecycle status of a coaching session."""
+
+    ACTIVE = "ACTIVE"
+    COMPLETED = "COMPLETED"
+
+
 class CoachingPhase(str, Enum):
     """Phases of the coaching process."""
 

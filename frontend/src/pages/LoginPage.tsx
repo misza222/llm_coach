@@ -4,7 +4,6 @@ import { useAuth } from '../contexts/AuthContext'
 const PROVIDERS = [
   { id: 'google', label: 'Continue with Google', color: 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50' },
   { id: 'twitter', label: 'Continue with Twitter', color: 'bg-black text-white hover:bg-gray-900' },
-  { id: 'facebook', label: 'Continue with Facebook', color: 'bg-blue-600 text-white hover:bg-blue-700' },
 ] as const
 
 export function LoginPage() {

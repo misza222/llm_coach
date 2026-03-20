@@ -186,15 +186,21 @@ def _migrate_anonymous_session(
     user_repo: UserRepository,
     storage: PersistenceBackend,
 ) -> None:
-    """Copy session state from anonymous user to authenticated user, then clean up."""
-    # Copy conversation state if it exists under the anonymous ID
-    anonymous_state = storage.load(anonymous_id)
-    if anonymous_state is not None:
-        # Only migrate if the authenticated user doesn't already have a session
-        if not storage.exists(user_id):
-            anonymous_state["user_id"] = user_id
-            storage.save(user_id, anonymous_state)
-            log.info("session_state_migrated", anonymous_id=anonymous_id, user_id=user_id)
+    """Re-assign anonymous sessions to the authenticated user, then clean up."""
+    # Find all sessions belonging to the anonymous user
+    anonymous_sessions = storage.list_sessions(anonymous_id)
+    for summary in anonymous_sessions:
+        session_id = summary["session_id"]
+        state = storage.load(session_id)
+        if state is not None:
+            state["user_id"] = user_id
+            storage.save(session_id, state)
+            log.info(
+                "session_state_migrated",
+                session_id=session_id,
+                anonymous_id=anonymous_id,
+                user_id=user_id,
+            )
 
     user_repo.delete_anonymous_count(anonymous_id)
     log.info("anonymous_session_migrated", anonymous_id=anonymous_id, user_id=user_id)

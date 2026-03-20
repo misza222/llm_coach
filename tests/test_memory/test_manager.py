@@ -11,6 +11,7 @@ def test_create_empty_state_returns_session_state_with_empty_history(
     state = manager.create_empty_state("test_user")
     assert isinstance(state, SessionState)
     assert state.conversation_history == []
+    assert state.session_id  # auto-generated
 
 
 def test_add_user_message_appends_message_with_role_user(
@@ -22,6 +23,20 @@ def test_add_user_message_appends_message_with_role_user(
     assert updated.conversation_history[0] == {"role": "user", "content": "Hello coach!"}
 
 
+def test_add_user_message_replaces_default_title_with_first_message(
+    manager: MemoryManager, empty_state: SessionState
+) -> None:
+    """First user message replaces the default 'First session' placeholder title."""
+    updated = manager.add_user_message(empty_state, "I want to improve my career")
+    assert updated.title == "I want to improve my career"
+
+
+def test_create_empty_state_has_default_title(manager: MemoryManager) -> None:
+    """create_empty_state() sets title to 'First session' so sidebar shows it immediately."""
+    state = manager.create_empty_state("user-1")
+    assert state.title == "First session"
+
+
 def test_update_from_output_updates_coaching_phase(
     manager: MemoryManager, empty_state: SessionState
 ) -> None:
@@ -30,18 +45,32 @@ def test_update_from_output_updates_coaching_phase(
         "coaching_phase": "EXPLORATION",
         "response": "Let's explore that.",
     }
-    updated = manager.update_from_output(empty_state, output)
+    updated, is_closing = manager.update_from_output(empty_state, output)
     assert updated.current_phase == "EXPLORATION"
+    assert is_closing is False
+
+
+def test_update_from_output_detects_closing_phase(
+    manager: MemoryManager, empty_state: SessionState
+) -> None:
+    """update_from_output() returns is_closing=True when phase is CLOSING."""
+    output = {
+        "coaching_phase": "CLOSING",
+        "response": "Great session!",
+    }
+    updated, is_closing = manager.update_from_output(empty_state, output)
+    assert updated.current_phase == "CLOSING"
+    assert is_closing is True
 
 
 def test_update_from_output_accumulates_emotions_without_duplicates(
     manager: MemoryManager, empty_state: SessionState
 ) -> None:
     """Emotions are accumulated across calls; duplicates are ignored."""
-    state = manager.update_from_output(
+    state, _ = manager.update_from_output(
         empty_state, {"detected_emotions": ["fear", "joy"], "response": "ok"}
     )
-    state = manager.update_from_output(
+    state, _ = manager.update_from_output(
         state, {"detected_emotions": ["joy", "hope"], "response": "ok"}
     )
     assert state.detected_emotions == ["fear", "joy", "hope"]
@@ -52,7 +81,7 @@ def test_update_from_output_increments_open_questions_count(
 ) -> None:
     """open_questions_count increases by 1 for each OPEN question type."""
     output = {"question_type": "OPEN", "response": "What do you think?"}
-    updated = manager.update_from_output(empty_state, output)
+    updated, _ = manager.update_from_output(empty_state, output)
     assert updated.open_questions_count == 1
 
 
@@ -61,8 +90,29 @@ def test_update_from_output_increments_paraphrases_count(
 ) -> None:
     """paraphrases_count increases by 1 for each PARAPHRASE question type."""
     output = {"question_type": "PARAPHRASE", "response": "I hear that you feel..."}
-    updated = manager.update_from_output(empty_state, output)
+    updated, _ = manager.update_from_output(empty_state, output)
     assert updated.paraphrases_count == 1
+
+
+def test_update_from_output_auto_generates_title_from_main_goal(
+    manager: MemoryManager, empty_state: SessionState
+) -> None:
+    """Title is auto-set from main_goal when first provided."""
+    output = {
+        "main_goal": "Get promoted to senior",
+        "response": "Let's work on that.",
+    }
+    updated, _ = manager.update_from_output(empty_state, output)
+    assert updated.title == "Get promoted to senior"
+
+
+def test_complete_session_sets_status_and_timestamp(
+    manager: MemoryManager, empty_state: SessionState
+) -> None:
+    """complete_session() sets status to COMPLETED with a timestamp."""
+    completed = manager.complete_session(empty_state)
+    assert completed.status == "COMPLETED"
+    assert completed.completed_at is not None
 
 
 def test_get_recent_history_with_limit_returns_last_n_messages(

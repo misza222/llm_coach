@@ -2,7 +2,7 @@
 Persistence Backend Interface
 
 Structural protocol for pluggable storage backends.
-Implementations: InMemoryBackend (dev), RedisBackend (prod), PostgresBackend (future)
+Implementations: InMemoryBackend (dev), SqlBackend (prod)
 """
 
 from typing import Protocol, runtime_checkable
@@ -17,28 +17,33 @@ __all__ = ["PersistenceBackend", "PersistenceError"]
 @runtime_checkable
 class PersistenceBackend(Protocol):
     """
-    Structural interface for user state persistence.
+    Structural interface for session state persistence.
 
-    Any class that implements save/load/exists/delete/list_users
-    with matching signatures satisfies this protocol — no inheritance needed.
+    Sessions are keyed by session_id (not user_id). A user may own
+    multiple sessions; use list_sessions / find_active_session to
+    query by user.
     """
 
-    def save(self, user_id: str, state: dict) -> None:
-        """Save user state, overwriting any existing entry."""
+    def save(self, session_id: str, state: dict) -> None:
+        """Save session state, overwriting any existing entry."""
         ...
 
-    def load(self, user_id: str) -> dict | None:
-        """Return state dict for user_id, or None if no state exists."""
+    def load(self, session_id: str) -> dict | None:
+        """Return state dict for session_id, or None if not found."""
         ...
 
-    def exists(self, user_id: str) -> bool:
-        """Return True if user has saved state, False otherwise."""
+    def exists(self, session_id: str) -> bool:
+        """Return True if session exists, False otherwise."""
         ...
 
-    def delete(self, user_id: str) -> None:
-        """Delete user state. Raises PersistenceError if user doesn't exist."""
+    def delete(self, session_id: str) -> None:
+        """Delete session state. Raises PersistenceError if not found."""
         ...
 
-    def list_users(self) -> list[str]:
-        """Return list of all user_id strings with saved state."""
+    def list_sessions(self, user_id: str) -> list[dict]:
+        """Return summary dicts for all sessions owned by user_id, ordered by updated_at DESC."""
+        ...
+
+    def find_active_session(self, user_id: str) -> dict | None:
+        """Return the full state dict of the user's active session, or None."""
         ...

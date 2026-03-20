@@ -12,60 +12,67 @@ from life_coach_system.exceptions import PersistenceError
 
 class InMemoryBackend:
     """
-    Store user state in memory (dict).
+    Store session state in memory (dict), keyed by session_id.
 
     Satisfies the PersistenceBackend protocol via structural subtyping —
     no explicit inheritance required.
-
-    Advantages:
-    - Fast (no I/O)
-    - Simple (no setup needed)
-    - Good for development and testing
-
-    Disadvantages:
-    - State lost on restart
-    - Not suitable for production
-    - No multi-process support
     """
 
     def __init__(self) -> None:
         """Initialize empty storage."""
         self._storage: dict[str, dict] = {}
 
-    def save(self, user_id: str, state: dict) -> None:
-        """Save user state to memory."""
-        # Deep copy to avoid reference issues when the caller mutates state later
-        self._storage[user_id] = copy.deepcopy(state)
+    def save(self, session_id: str, state: dict) -> None:
+        """Save session state to memory."""
+        self._storage[session_id] = copy.deepcopy(state)
 
-    def load(self, user_id: str) -> dict | None:
-        """Load user state from memory."""
-        state = self._storage.get(user_id)
-
+    def load(self, session_id: str) -> dict | None:
+        """Load session state from memory."""
+        state = self._storage.get(session_id)
         if state is None:
             return None
-
-        # Return deep copy to prevent mutations from affecting stored state
         return copy.deepcopy(state)
 
-    def exists(self, user_id: str) -> bool:
-        """Check if user has saved state."""
-        return user_id in self._storage
+    def exists(self, session_id: str) -> bool:
+        """Check if session exists."""
+        return session_id in self._storage
 
-    def delete(self, user_id: str) -> None:
-        """Delete user state. Raises PersistenceError if user doesn't exist."""
-        if not self.exists(user_id):
-            raise PersistenceError(f"User {user_id} does not exist")
+    def delete(self, session_id: str) -> None:
+        """Delete session state. Raises PersistenceError if not found."""
+        if not self.exists(session_id):
+            raise PersistenceError(f"Session {session_id} does not exist")
+        del self._storage[session_id]
 
-        del self._storage[user_id]
+    def list_sessions(self, user_id: str) -> list[dict]:
+        """Return summary dicts for all sessions owned by user_id, newest first."""
+        results = []
+        for state in self._storage.values():
+            if state.get("user_id") == user_id:
+                results.append(
+                    {
+                        "session_id": state.get("session_id", ""),
+                        "title": state.get("title"),
+                        "status": state.get("status", "ACTIVE"),
+                        "current_phase": state.get("current_phase", "INTRODUCTION"),
+                        "created_at": state.get("created_at", ""),
+                        "updated_at": state.get("updated_at", state.get("created_at", "")),
+                    }
+                )
+        # Sort by updated_at descending
+        results.sort(key=lambda s: s.get("updated_at", ""), reverse=True)
+        return results
 
-    def list_users(self) -> list[str]:
-        """List all user IDs."""
-        return list(self._storage.keys())
+    def find_active_session(self, user_id: str) -> dict | None:
+        """Return the full state dict of the user's active session, or None."""
+        for state in self._storage.values():
+            if state.get("user_id") == user_id and state.get("status", "ACTIVE") == "ACTIVE":
+                return copy.deepcopy(state)
+        return None
 
     def clear_all(self) -> None:
         """Clear all stored data (useful for testing)."""
         self._storage.clear()
 
     def get_storage_size(self) -> int:
-        """Get number of users in storage."""
+        """Get number of sessions in storage."""
         return len(self._storage)

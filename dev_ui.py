@@ -62,16 +62,16 @@ def interact(message: str, history: list, user_id: str) -> tuple[list, dict, str
     if not user_id or not user_id.strip():
         user_id = settings.default_user_id
 
-    # Get or create state
-    if storage.exists(user_id):
-        state_dict = storage.load(user_id)
-        state = SessionState(**state_dict)
+    # Get or create state — find active session for this user, or create new
+    active = storage.find_active_session(user_id)
+    if active is not None:
+        state = SessionState(**active)
     else:
         state = memory_manager.create_empty_state(user_id)
 
     # Generate coach response
     try:
-        response_text, updated_state = coach.respond(message, state)
+        response_text, updated_state, _is_closing = coach.respond(message, state)
     except LifeCoachError as e:
         error_msg = f"Error generating response: {str(e)}"
         log.error("interact_failed", error=str(e))
@@ -81,8 +81,8 @@ def interact(message: str, history: list, user_id: str) -> tuple[list, dict, str
         log.error("interact_unexpected", error=str(e))
         return history, {"error": error_msg}, ""
 
-    # Save state
-    storage.save(user_id, updated_state.model_dump())
+    # Save state (keyed by session_id)
+    storage.save(updated_state.session_id, updated_state.model_dump())
 
     # Update Gradio history (messages format: list of dicts)
     history.append({"role": "user", "content": message})
@@ -123,8 +123,9 @@ def reset_conversation(user_id: str) -> tuple[list, dict, str]:
     if not user_id or not user_id.strip():
         user_id = settings.default_user_id
 
-    if storage.exists(user_id):
-        storage.delete(user_id)
+    # Delete all sessions for this user
+    for summary in storage.list_sessions(user_id):
+        storage.delete(summary["session_id"])
 
     return [], {"status": "State cleared"}, ""
 
@@ -142,9 +143,9 @@ def load_state_for_user(user_id: str) -> tuple[list, dict, str]:
     if not user_id or not user_id.strip():
         user_id = settings.default_user_id
 
-    if storage.exists(user_id):
-        state_dict = storage.load(user_id)
-        state = SessionState(**state_dict)
+    active = storage.find_active_session(user_id)
+    if active is not None:
+        state = SessionState(**active)
 
         # Reconstruct history for Gradio messages format (list of dicts)
         history = []

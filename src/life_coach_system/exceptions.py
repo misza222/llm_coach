@@ -13,6 +13,7 @@ __all__ = [
     "EvaluationError",
     "AuthenticationError",
     "AnonymousLimitError",
+    "SessionCompletedError",
 ]
 
 
@@ -42,3 +43,7 @@ class AuthenticationError(LifeCoachError):
 
 class AnonymousLimitError(LifeCoachError):
     """Raised when an anonymous user exceeds the free message limit."""
+
+
+class SessionCompletedError(LifeCoachError):
+    """Raised when trying to send a message to a completed session."""

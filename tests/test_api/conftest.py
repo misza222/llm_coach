@@ -30,9 +30,9 @@ class FakeCoachAgent:
     def __init__(self) -> None:
         self.memory_manager = MemoryManager()
 
-    def respond(self, user_message: str, state: SessionState) -> tuple[str, SessionState]:
+    def respond(self, user_message: str, state: SessionState) -> tuple[str, SessionState, bool]:
         state = self.memory_manager.add_user_message(state, user_message)
-        state = self.memory_manager.update_from_output(
+        state, is_closing = self.memory_manager.update_from_output(
             state,
             {
                 "response": f"Coach reply to: {user_message}",
@@ -41,7 +41,7 @@ class FakeCoachAgent:
                 "question_type": "OPEN",
             },
         )
-        return f"Coach reply to: {user_message}", state
+        return f"Coach reply to: {user_message}", state, is_closing
 
 
 @pytest.fixture()

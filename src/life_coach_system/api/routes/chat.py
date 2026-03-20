@@ -16,7 +16,7 @@ from life_coach_system.api.schemas import ChatMessage, ChatRequest, ChatResponse
 from life_coach_system.auth.user_repository import UserRepository
 from life_coach_system.config import settings
 from life_coach_system.engine.coach import CoachAgent
-from life_coach_system.exceptions import AnonymousLimitError
+from life_coach_system.exceptions import AnonymousLimitError, SessionCompletedError
 from life_coach_system.memory.logic.manager import MemoryManager
 from life_coach_system.memory.schemas.session_state import SessionState
 from life_coach_system.persistence.backend import PersistenceBackend
@@ -56,27 +56,43 @@ def chat(
             )
         remaining_messages = settings.max_anonymous_messages - current_count - 1
 
-    # Load or create session state
-    stored = storage.load(user_id)
-    if stored is not None:
-        state = SessionState(**stored)
+    # Resolve session: explicit session_id > active session > new session
+    state: SessionState | None = None
+    if request.session_id:
+        stored = storage.load(request.session_id)
+        if stored is not None:
+            state = SessionState(**stored)
+            if state.status == "COMPLETED":
+                raise SessionCompletedError("Cannot send messages to a completed session.")
     else:
+        active = storage.find_active_session(user_id)
+        if active is not None:
+            state = SessionState(**active)
+
+    if state is None:
         state = memory_manager.create_empty_state(user_id)
 
     # Generate coach response
-    response_text, updated_state = coach.respond(request.message, state)
+    response_text, updated_state, is_closing = coach.respond(request.message, state)
 
-    # Persist updated state
-    storage.save(user_id, updated_state.model_dump())
+    # Persist updated state (keyed by session_id)
+    storage.save(updated_state.session_id, updated_state.model_dump())
 
     # Increment anonymous count after successful response
     if is_anonymous:
         user_repo.increment_anonymous_count(user_id)
 
-    log.info("chat_response", user_id=user_id, phase=updated_state.current_phase)
+    log.info(
+        "chat_response",
+        user_id=user_id,
+        session_id=updated_state.session_id,
+        phase=updated_state.current_phase,
+    )
 
     return ChatResponse(
         reply=response_text,
+        session_id=updated_state.session_id,
+        status=updated_state.status,
         phase=updated_state.current_phase or "INTRODUCTION",
         detected_emotions=updated_state.detected_emotions,
         history=[
@@ -85,4 +101,5 @@ def chat(
         ],
         is_anonymous=is_anonymous,
         remaining_messages=remaining_messages,
+        is_closing=is_closing,
     )

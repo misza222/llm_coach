@@ -3,6 +3,7 @@ Session State Schema - current coaching session state.
 """
 
 from datetime import datetime
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -13,8 +14,14 @@ class SessionState(BaseModel):
     Contains all fields required to satisfy criteria LC-001 through LC-014.
     """
 
-    # Basic information
+    # Identity
+    session_id: str = Field(default_factory=lambda: uuid4().hex, description="Unique session PK")
     user_id: str = Field(..., description="Unique user identifier")
+    status: str = Field(default="ACTIVE", description="ACTIVE or COMPLETED")
+    title: str | None = Field(default=None, description="Display name for sidebar")
+    completed_at: str | None = Field(default=None, description="ISO timestamp of completion")
+
+    # Basic information
     user_name: str | None = Field(default=None, description="User name (LC-002)")
     conversation_history: list[dict] = Field(
         default_factory=list, description="History of messages"

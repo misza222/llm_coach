@@ -30,9 +30,11 @@ class CoachAgent:
         self.memory_manager = MemoryManager()
         self.prompter = SystemPrompter()
 
-    def respond(self, user_message: str, state: SessionState) -> tuple[str, SessionState]:
+    def respond(self, user_message: str, state: SessionState) -> tuple[str, SessionState, bool]:
         """
         Generate a coach response using Structured Output.
+
+        Returns (response_text, updated_state, is_closing).
         """
         # 1. Add user message to history
         state = self.memory_manager.add_user_message(state, user_message)
@@ -61,12 +63,10 @@ class CoachAgent:
         messages.extend(recent_history)
 
         # 5. === STRUCTURED OUTPUT ===
-        # Call LLM and expect a specific data model in return
         response: CoachResponseAnalysis = call_llm(messages, response_model=CoachResponseAnalysis)
 
         # 6. === STATE UPDATE ===
-        # Map structured response to persistent session memory
-        state = self.memory_manager.update_from_output(
+        state, is_closing = self.memory_manager.update_from_output(
             state,
             {
                 "response": response.ai_response,
@@ -84,4 +84,4 @@ class CoachAgent:
                 thoughts=response.analysis_summary[:50],
             )
 
-        return response.ai_response, state
+        return response.ai_response, state, is_closing

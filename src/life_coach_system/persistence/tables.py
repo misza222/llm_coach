@@ -27,7 +27,11 @@ metadata = MetaData()
 sessions_table = Table(
     "sessions",
     metadata,
-    Column("user_id", String(255), primary_key=True),
+    Column("session_id", String(255), primary_key=True),
+    Column("user_id", String(255), nullable=False, index=True),
+    Column("status", String(20), nullable=False, default="ACTIVE"),
+    Column("title", String(255), nullable=True),
+    Column("completed_at", DateTime(timezone=True), nullable=True),
     Column("state", Text, nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),

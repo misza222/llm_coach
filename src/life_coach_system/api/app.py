@@ -21,6 +21,7 @@ from life_coach_system.exceptions import (
     LifeCoachError,
     LLMError,
     PersistenceError,
+    SessionCompletedError,
 )
 
 log = get_logger(__name__)
@@ -60,6 +61,13 @@ def create_app() -> FastAPI:
     async def _handle_anon_limit(_request: Request, exc: AnonymousLimitError) -> JSONResponse:
         log.info("anonymous_limit_reached", error=str(exc))
         return JSONResponse(status_code=403, content={"detail": str(exc)})
+
+    @app.exception_handler(SessionCompletedError)
+    async def _handle_session_completed(
+        _request: Request, exc: SessionCompletedError
+    ) -> JSONResponse:
+        log.info("session_completed_rejected", error=str(exc))
+        return JSONResponse(status_code=409, content={"detail": str(exc)})
 
     @app.exception_handler(LLMError)
     async def _handle_llm_error(_request: Request, exc: LLMError) -> JSONResponse:

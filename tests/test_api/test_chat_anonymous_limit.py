@@ -23,9 +23,9 @@ class _FakeCoach:
     def __init__(self) -> None:
         self.memory_manager = MemoryManager()
 
-    def respond(self, user_message: str, state: SessionState) -> tuple[str, SessionState]:
+    def respond(self, user_message: str, state: SessionState) -> tuple[str, SessionState, bool]:
         state = self.memory_manager.add_user_message(state, user_message)
-        state = self.memory_manager.update_from_output(
+        state, is_closing = self.memory_manager.update_from_output(
             state,
             {
                 "response": f"Reply: {user_message}",
@@ -34,7 +34,7 @@ class _FakeCoach:
                 "question_type": "OPEN",
             },
         )
-        return f"Reply: {user_message}", state
+        return f"Reply: {user_message}", state, is_closing
 
 
 def _make_client(*, max_anonymous: int = 3) -> TestClient:

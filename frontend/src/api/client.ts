@@ -1,4 +1,10 @@
-import type { AuthStatusResponse, ChatRequest, ChatResponse, SessionResponse } from './types'
+import type {
+  AuthStatusResponse,
+  ChatRequest,
+  ChatResponse,
+  SessionListResponse,
+  SessionResponse,
+} from './types'
 
 class ApiError extends Error {
   status: number
@@ -30,14 +36,42 @@ export async function sendMessage(payload: ChatRequest): Promise<ChatResponse> {
   })
 }
 
-export async function getSession(userId: string): Promise<SessionResponse> {
-  return request<SessionResponse>(`/api/v1/sessions/${encodeURIComponent(userId)}`)
+export async function listSessions(userId: string): Promise<SessionListResponse> {
+  return request<SessionListResponse>(`/api/v1/sessions/${encodeURIComponent(userId)}`)
 }
 
-export async function resetSession(userId: string): Promise<void> {
-  await request(`/api/v1/sessions/${encodeURIComponent(userId)}/reset`, {
+export async function getSessionById(
+  userId: string,
+  sessionId: string,
+): Promise<SessionResponse> {
+  return request<SessionResponse>(
+    `/api/v1/sessions/${encodeURIComponent(userId)}/${encodeURIComponent(sessionId)}`,
+  )
+}
+
+export async function createNewSession(userId: string): Promise<SessionResponse> {
+  return request<SessionResponse>(`/api/v1/sessions/${encodeURIComponent(userId)}/new`, {
     method: 'POST',
   })
+}
+
+export async function endSession(userId: string, sessionId: string): Promise<void> {
+  await request(
+    `/api/v1/sessions/${encodeURIComponent(userId)}/${encodeURIComponent(sessionId)}/end`,
+    { method: 'POST' },
+  )
+}
+
+export async function deleteSession(userId: string, sessionId: string): Promise<void> {
+  await request(
+    `/api/v1/sessions/${encodeURIComponent(userId)}/${encodeURIComponent(sessionId)}`,
+    { method: 'DELETE' },
+  )
+}
+
+export async function exportSession(userId: string, sessionId: string): Promise<void> {
+  const url = `/api/v1/sessions/${encodeURIComponent(userId)}/${encodeURIComponent(sessionId)}/export`
+  window.open(url, '_blank')
 }
 
 export async function getAuthStatus(): Promise<AuthStatusResponse> {
