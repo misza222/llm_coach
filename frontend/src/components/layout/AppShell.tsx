@@ -13,7 +13,15 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div className="flex h-screen flex-col bg-white">
       <header className="flex items-center justify-between border-b border-gray-200 px-6 py-3">
-        <h1 className="text-lg font-semibold text-gray-900">Life Coach</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-lg font-semibold text-gray-900">Life Coach</h1>
+          <a
+            href="/devui/"
+            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            Dev UI
+          </a>
+        </div>
 
         <div className="flex items-center gap-3">
           {isAuthenticated && user ? (

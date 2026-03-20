@@ -9,12 +9,18 @@ from fastapi import APIRouter, Depends, Request, Response
 from starlette.responses import RedirectResponse
 
 from life_coach_system._logging import get_logger
-from life_coach_system.api.dependencies import get_current_user, get_oauth, get_user_repository
+from life_coach_system.api.dependencies import (
+    get_current_user,
+    get_oauth,
+    get_storage,
+    get_user_repository,
+)
 from life_coach_system.api.schemas import AuthStatusResponse, UserInfo
 from life_coach_system.auth.jwt import create_access_token
 from life_coach_system.auth.oauth import OAuth
 from life_coach_system.auth.user_repository import UserRepository
 from life_coach_system.config import settings
+from life_coach_system.persistence.backend import PersistenceBackend
 
 log = get_logger(__name__)
 
@@ -59,6 +65,7 @@ async def callback(
     request: Request,
     oauth: OAuth = Depends(get_oauth),
     user_repo: UserRepository = Depends(get_user_repository),
+    storage: PersistenceBackend = Depends(get_storage),
 ) -> Response:
     """Handle the OAuth callback: find/create user, set JWT, redirect to app."""
     client = getattr(oauth, provider, None)
@@ -93,7 +100,7 @@ async def callback(
     parsed_state = json.loads(state_data)
     anonymous_id = parsed_state.get("anonymous_id", "")
     if anonymous_id:
-        _migrate_anonymous_session(anonymous_id, user["id"], user_repo)
+        _migrate_anonymous_session(anonymous_id, user["id"], user_repo, storage)
 
     # Create JWT and set cookie
     jwt_token = create_access_token(
@@ -173,10 +180,21 @@ async def _extract_user_info(
     return None, None, None, token.get("sub", "unknown")
 
 
-def _migrate_anonymous_session(anonymous_id: str, user_id: str, user_repo: UserRepository) -> None:
-    """Move anonymous session data to the authenticated user and clean up counts."""
-    # Session state migration is handled by the frontend sending the
-    # anonymous user_id — the persistence backend already stores state
-    # keyed by user_id, so the frontend will switch to the new user_id.
+def _migrate_anonymous_session(
+    anonymous_id: str,
+    user_id: str,
+    user_repo: UserRepository,
+    storage: PersistenceBackend,
+) -> None:
+    """Copy session state from anonymous user to authenticated user, then clean up."""
+    # Copy conversation state if it exists under the anonymous ID
+    anonymous_state = storage.load(anonymous_id)
+    if anonymous_state is not None:
+        # Only migrate if the authenticated user doesn't already have a session
+        if not storage.exists(user_id):
+            anonymous_state["user_id"] = user_id
+            storage.save(user_id, anonymous_state)
+            log.info("session_state_migrated", anonymous_id=anonymous_id, user_id=user_id)
+
     user_repo.delete_anonymous_count(anonymous_id)
     log.info("anonymous_session_migrated", anonymous_id=anonymous_id, user_id=user_id)

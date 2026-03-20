@@ -82,6 +82,28 @@ def create_app() -> FastAPI:
     app.include_router(chat_router)
     app.include_router(session_router)
 
+    # -- Dev UI (Gradio, debug mode only) --
+    if settings.debug:
+        try:
+            import importlib.util
+            import sys
+
+            import gradio as gr
+
+            dev_ui_path = Path(__file__).resolve().parent.parent.parent.parent / "dev_ui.py"
+            if dev_ui_path.exists():
+                spec = importlib.util.spec_from_file_location("_dev_ui", dev_ui_path)
+                if spec and spec.loader:
+                    mod = importlib.util.module_from_spec(spec)
+                    sys.modules["_dev_ui"] = mod
+                    spec.loader.exec_module(mod)
+                    app = gr.mount_gradio_app(app, mod.demo, path="/devui")
+                    log.info("dev_ui_mounted", path="/devui")
+            else:
+                log.info("dev_ui_skipped", reason="dev_ui.py not found")
+        except ImportError:
+            log.info("dev_ui_skipped", reason="gradio not installed")
+
     # -- Static files (built React frontend) --
     if _FRONTEND_DIST.is_dir():
         app.mount("/", StaticFiles(directory=str(_FRONTEND_DIST), html=True), name="frontend")
