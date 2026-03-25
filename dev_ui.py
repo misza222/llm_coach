@@ -1,8 +1,9 @@
 """
 Development UI for the Life Coach System (Gradio).
 
-This is a dev/testing interface — uses in-memory state and exposes debug tooling.
-Not intended for production use.
+Dev/testing interface that shares storage with the main API — set DATABASE_URL
+in .env (e.g. sqlite:///sessions.db) so both UIs read and write the same data.
+Without DATABASE_URL, falls back to in-memory (state lost on restart).
 Run: uv run python dev_ui.py
 """
 
@@ -19,7 +20,7 @@ from life_coach_system.engine.coach import CoachAgent
 from life_coach_system.exceptions import LifeCoachError
 from life_coach_system.memory.logic.manager import MemoryManager
 from life_coach_system.memory.schemas.session_state import SessionState
-from life_coach_system.persistence.in_memory import InMemoryBackend
+from life_coach_system.persistence import create_storage
 from life_coach_system.utils.evaluator import evaluate_conversation as evaluate_conv_llm
 from life_coach_system.utils.evaluator import format_evaluation_results
 from life_coach_system.utils.leaderboard_parser import (
@@ -33,7 +34,7 @@ log = get_logger(__name__)
 # Global instances (singleton pattern)
 # ===================================================================
 
-storage = InMemoryBackend()
+storage = create_storage(database_url=settings.database_url)
 coach = CoachAgent(storage=storage)
 memory_manager = MemoryManager()
 

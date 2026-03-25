@@ -23,8 +23,7 @@ from life_coach_system.config import settings
 from life_coach_system.engine.coach import CoachAgent
 from life_coach_system.exceptions import AuthenticationError
 from life_coach_system.memory.logic.manager import MemoryManager
-from life_coach_system.persistence.backend import PersistenceBackend
-from life_coach_system.persistence.in_memory import InMemoryBackend
+from life_coach_system.persistence import PersistenceBackend, create_storage
 
 log = get_logger(__name__)
 
@@ -38,14 +37,10 @@ def get_coach() -> CoachAgent:
 @lru_cache(maxsize=1)
 def get_storage() -> PersistenceBackend:
     """Return the singleton storage backend based on config."""
-    if settings.database_url is not None:
-        from life_coach_system.persistence.sql_backend import SqlBackend
-
-        log.info("persistence_backend", backend="sql", url=settings.database_url.split("@")[-1])
-        return SqlBackend(database_url=settings.database_url)
-
-    log.info("persistence_backend", backend="in_memory")
-    return InMemoryBackend()
+    backend = create_storage(database_url=settings.database_url)
+    backend_type = "sql" if settings.database_url else "in_memory"
+    log.info("persistence_backend", backend=backend_type)
+    return backend
 
 
 @lru_cache(maxsize=1)
