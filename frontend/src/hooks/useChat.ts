@@ -95,9 +95,9 @@ export function useChat(userId: string, sessionId: string | null) {
           phase: response.phase,
           status: response.status,
           detectedEmotions: response.detected_emotions,
-          mainGoal: meta.mainGoal,
-          userName: meta.userName,
-          title: meta.title,
+          mainGoal: response.main_goal ?? meta.mainGoal,
+          userName: response.user_name ?? meta.userName,
+          title: response.title ?? meta.title,
         })
         setRemainingMessages(response.remaining_messages)
         setIsClosing(response.is_closing)

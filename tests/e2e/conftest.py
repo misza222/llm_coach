@@ -44,7 +44,13 @@ _SERVER_URL = f"http://127.0.0.1:{_SERVER_PORT}"
 
 
 class _FakeCoachAgent:
-    """Returns deterministic replies without calling any LLM."""
+    """Returns deterministic replies without calling any LLM.
+
+    Behaviour hooks for e2e tests:
+    - Always returns detected_emotions: ["curiosity"]
+    - Messages starting with "My goal is " extract the goal into main_goal
+    - The message "please close" triggers the CLOSING phase
+    """
 
     def __init__(self) -> None:
         self._memory_manager = MemoryManager()
@@ -52,15 +58,23 @@ class _FakeCoachAgent:
     def respond(self, user_message: str, state: SessionState) -> tuple[str, SessionState, bool]:
         state = self._memory_manager.add_user_message(state, user_message)
         reply = f"Coach: {user_message}"
-        state, is_closing = self._memory_manager.update_from_output(
-            state,
-            {
-                "response": reply,
-                "coaching_phase": "CONTEXT_GATHERING",
-                "detected_emotions": [],
-                "question_type": "OPEN",
-            },
-        )
+
+        output: dict = {
+            "response": reply,
+            "coaching_phase": "CONTEXT_GATHERING",
+            "detected_emotions": ["curiosity"],
+            "question_type": "OPEN",
+        }
+
+        # Allow tests to trigger goal extraction
+        if user_message.lower().startswith("my goal is "):
+            output["main_goal"] = user_message[len("my goal is ") :]
+
+        # Allow tests to trigger the closing phase
+        if user_message.lower() == "please close":
+            output["coaching_phase"] = "CLOSING"
+
+        state, is_closing = self._memory_manager.update_from_output(state, output)
         return reply, state, is_closing
 
 

@@ -41,6 +41,9 @@ class ChatResponse(BaseModel):
     status: str
     phase: str
     detected_emotions: list[str]
+    main_goal: str | None = None
+    user_name: str | None = None
+    title: str | None = None
     history: list[ChatMessage]
     is_anonymous: bool = True
     remaining_messages: int | None = None

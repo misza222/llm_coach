@@ -95,6 +95,9 @@ def chat(
         status=updated_state.status,
         phase=updated_state.current_phase or "INTRODUCTION",
         detected_emotions=updated_state.detected_emotions,
+        main_goal=updated_state.main_goal,
+        user_name=updated_state.user_name,
+        title=updated_state.title,
         history=[
             ChatMessage(role=msg["role"], content=msg["content"])
             for msg in updated_state.conversation_history

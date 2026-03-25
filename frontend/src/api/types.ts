@@ -15,6 +15,9 @@ export interface ChatResponse {
   status: string
   phase: string
   detected_emotions: string[]
+  main_goal: string | null
+  user_name: string | null
+  title: string | null
   history: ChatMessage[]
   is_anonymous: boolean
   remaining_messages: number | null
