@@ -2,6 +2,10 @@
 Coach Agent - main coaching agent with Structured Output.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from life_coach_system._logging import get_logger
 from life_coach_system.config import settings
 from life_coach_system.engine.client import call_llm
@@ -12,6 +16,9 @@ from life_coach_system.memory.schemas.coach_types import (  # noqa: F401
     CoachResponseAnalysis,
 )
 from life_coach_system.memory.schemas.session_state import SessionState
+
+if TYPE_CHECKING:
+    from life_coach_system.persistence.backend import PersistenceBackend
 
 log = get_logger(__name__)
 
@@ -25,10 +32,11 @@ class CoachAgent:
     - Structured Output (CoachResponseAnalysis) to enforce Chain of Thought
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, storage: PersistenceBackend | None = None) -> None:
         """Initialize CoachAgent."""
         self.memory_manager = MemoryManager()
         self.prompter = SystemPrompter()
+        self._storage = storage
 
     def respond(self, user_message: str, state: SessionState) -> tuple[str, SessionState, bool]:
         """
@@ -44,7 +52,16 @@ class CoachAgent:
             state, limit=settings.max_history_messages
         )
 
-        # 3. Build system prompt dynamically (inject state from memory)
+        # 3. Build cross-session context (profile + past session summaries)
+        cross_session = None
+        if self._storage is not None:
+            cross_session = self.memory_manager.build_cross_session_context(
+                state.user_id,
+                self._storage,
+                max_past_sessions=settings.max_past_sessions,
+            )
+
+        # 4. Build system prompt dynamically (inject state from memory)
         system_prompt = self.prompter.build_system_prompt(
             core={
                 "coach_name": settings.coach_name,
@@ -56,16 +73,17 @@ class CoachAgent:
                 "detected_emotions": state.detected_emotions,
             },
             history=recent_history,
+            cross_session=cross_session,
         )
 
-        # 4. Prepare message structure for API
+        # 5. Prepare message structure for API
         messages = [{"role": "system", "content": system_prompt}]
         messages.extend(recent_history)
 
-        # 5. === STRUCTURED OUTPUT ===
+        # 6. === STRUCTURED OUTPUT ===
         response: CoachResponseAnalysis = call_llm(messages, response_model=CoachResponseAnalysis)
 
-        # 6. === STATE UPDATE ===
+        # 7. === STATE UPDATE ===
         state, is_closing = self.memory_manager.update_from_output(
             state,
             {

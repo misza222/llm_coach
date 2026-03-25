@@ -2,11 +2,22 @@
 Memory Manager - manages coaching session state.
 """
 
+from __future__ import annotations
+
 from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
 from life_coach_system.memory.schemas.session_state import SessionState
+from life_coach_system.memory.schemas.user_profile import (
+    CompletedSessionSummary,
+    UserProfile,
+)
+
+if TYPE_CHECKING:
+    from life_coach_system.persistence.backend import PersistenceBackend
 
 _MAX_TITLE_LENGTH = 60
+_MAX_PROFILE_INSIGHTS = 20
 # Placeholder replaced by auto-generated title once user starts talking
 _DEFAULT_TITLE = "New session"
 # Fixed title for a user's very first session — never auto-replaced
@@ -107,3 +118,88 @@ class MemoryManager:
     def get_recent_history(self, state: SessionState, *, limit: int = 10) -> list[dict]:
         """Retrieve the last N messages as context."""
         return state.conversation_history[-limit:]
+
+    def build_cross_session_context(
+        self,
+        user_id: str,
+        storage: PersistenceBackend,
+        *,
+        max_past_sessions: int = 3,
+    ) -> dict[str, Any]:
+        """Build cross-session context for the system prompt.
+
+        Loads the user profile and summaries of recent completed sessions
+        so the coach can provide continuity across sessions.
+        """
+        profile_dict = storage.load_user_profile(user_id)
+
+        # Collect completed session summaries (most recent first)
+        session_summaries = storage.list_sessions(user_id)
+        completed_summaries: list[dict] = []
+        for summary in session_summaries:
+            if summary.get("status") != "COMPLETED":
+                continue
+            if len(completed_summaries) >= max_past_sessions:
+                break
+            state_dict = storage.load(summary["session_id"])
+            if state_dict is None:
+                continue
+            completed_summaries.append(
+                CompletedSessionSummary(
+                    session_id=state_dict.get("session_id", ""),
+                    title=state_dict.get("title"),
+                    main_goal=state_dict.get("main_goal"),
+                    key_insights=state_dict.get("key_insights", []),
+                    action_plan=state_dict.get("action_plan"),
+                    detected_emotions=state_dict.get("detected_emotions", []),
+                    final_phase=state_dict.get("current_phase"),
+                    completed_at=state_dict.get("completed_at"),
+                ).model_dump()
+            )
+
+        return {
+            "user_profile": profile_dict,
+            "past_sessions": completed_summaries,
+        }
+
+    def update_user_profile(
+        self,
+        user_id: str,
+        storage: PersistenceBackend,
+        completed_state: SessionState,
+    ) -> None:
+        """Materialize cross-session user profile after session completion.
+
+        Merges data from the completed session into the accumulated profile
+        and persists it via the storage backend.
+        """
+        existing = storage.load_user_profile(user_id)
+        if existing is not None:
+            profile = UserProfile(**existing)
+        else:
+            profile = UserProfile(user_id=user_id)
+
+        # Carry forward user_name (latest wins)
+        if completed_state.user_name:
+            profile.user_name = completed_state.user_name
+
+        # Merge emotions (deduplicated union)
+        existing_emotions = set(profile.all_time_emotions)
+        for emotion in completed_state.detected_emotions:
+            if emotion not in existing_emotions:
+                profile.all_time_emotions.append(emotion)
+                existing_emotions.add(emotion)
+
+        # Append insights, cap at max
+        for insight in completed_state.key_insights:
+            if insight not in profile.all_time_insights:
+                profile.all_time_insights.append(insight)
+        profile.all_time_insights = profile.all_time_insights[-_MAX_PROFILE_INSIGHTS:]
+
+        # Last session data
+        profile.last_session_goal = completed_state.main_goal
+        profile.last_session_action_plan = completed_state.action_plan
+        profile.completed_session_count += 1
+        profile.updated_at = datetime.now().isoformat()
+
+        storage.save_user_profile(user_id, profile.model_dump())

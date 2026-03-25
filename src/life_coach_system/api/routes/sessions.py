@@ -104,6 +104,7 @@ def create_new_session(
         # Active session has messages — complete it before creating a new one
         completed = memory_manager.complete_session(active_state)
         storage.save(completed.session_id, completed.model_dump())
+        memory_manager.update_user_profile(user_id, storage, completed)
         log.info("session_auto_completed", session_id=completed.session_id)
 
     # First-ever session for this user gets a fixed "Introduction" title
@@ -148,6 +149,7 @@ def end_session(
 
     completed = memory_manager.complete_session(state)
     storage.save(completed.session_id, completed.model_dump())
+    memory_manager.update_user_profile(user_id, storage, completed)
     log.info("session_ended", session_id=session_id)
     return {"status": "completed"}
 

@@ -12,7 +12,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.engine import Engine
 
 from life_coach_system.exceptions import PersistenceError
-from life_coach_system.persistence.tables import metadata, sessions_table
+from life_coach_system.persistence.tables import metadata, sessions_table, user_profiles_table
 
 __all__ = ["SqlBackend"]
 
@@ -147,6 +147,44 @@ class SqlBackend:
                 .where(sessions_table.c.status == "ACTIVE")
                 .order_by(sessions_table.c.updated_at.desc())
                 .limit(1)
+            ).first()
+
+        if row is None:
+            return None
+        return json.loads(row[0])
+
+    def save_user_profile(self, user_id: str, profile_dict: dict) -> None:
+        """Save or overwrite the cross-session user profile."""
+        now = datetime.now(timezone.utc)
+        profile_json = json.dumps(profile_dict, ensure_ascii=False, default=str)
+
+        with self._engine.begin() as connection:
+            existing = connection.execute(
+                select(user_profiles_table.c.user_id).where(
+                    user_profiles_table.c.user_id == user_id
+                )
+            ).first()
+
+            if existing:
+                connection.execute(
+                    user_profiles_table.update()
+                    .where(user_profiles_table.c.user_id == user_id)
+                    .values(profile=profile_json, updated_at=now)
+                )
+            else:
+                connection.execute(
+                    user_profiles_table.insert().values(
+                        user_id=user_id, profile=profile_json, updated_at=now
+                    )
+                )
+
+    def load_user_profile(self, user_id: str) -> dict | None:
+        """Return the user profile dict, or None if not found."""
+        with self._engine.connect() as connection:
+            row = connection.execute(
+                select(user_profiles_table.c.profile).where(
+                    user_profiles_table.c.user_id == user_id
+                )
             ).first()
 
         if row is None:

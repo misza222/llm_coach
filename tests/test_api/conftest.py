@@ -27,8 +27,9 @@ from life_coach_system.persistence.tables import metadata
 class FakeCoachAgent:
     """Returns a canned response without calling any LLM."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, storage=None) -> None:
         self.memory_manager = MemoryManager()
+        self._storage = storage
 
     def respond(self, user_message: str, state: SessionState) -> tuple[str, SessionState, bool]:
         state = self.memory_manager.add_user_message(state, user_message)
@@ -51,7 +52,7 @@ def client() -> TestClient:
 
     fresh_storage = InMemoryBackend()
     fresh_memory_manager = MemoryManager()
-    fake_coach = FakeCoachAgent()
+    fake_coach = FakeCoachAgent(storage=fresh_storage)
 
     # Create a fresh in-memory SQLite for auth tables (StaticPool shares one connection)
     engine = create_engine(

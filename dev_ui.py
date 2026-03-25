@@ -33,8 +33,8 @@ log = get_logger(__name__)
 # Global instances (singleton pattern)
 # ===================================================================
 
-coach = CoachAgent()
 storage = InMemoryBackend()
+coach = CoachAgent(storage=storage)
 memory_manager = MemoryManager()
 
 

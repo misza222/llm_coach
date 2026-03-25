@@ -130,3 +130,27 @@ def test_load_returns_deep_copy(backend: InMemoryBackend) -> None:
     # Internal storage must be untouched
     stored_again = backend.load("s1")
     assert stored_again == {"session_id": "s1", "user_id": "dave", "items": [1, 2, 3]}
+
+
+# --- User profile tests ---
+
+
+def test_save_and_load_user_profile_round_trip(backend: InMemoryBackend) -> None:
+    """Saved profile is returned unchanged by load_user_profile."""
+    profile = {"user_id": "alice", "user_name": "Alice", "completed_session_count": 3}
+    backend.save_user_profile("alice", profile)
+    loaded = backend.load_user_profile("alice")
+    assert loaded == profile
+
+
+def test_load_user_profile_returns_none_for_unknown_user(backend: InMemoryBackend) -> None:
+    """load_user_profile() returns None when no profile exists."""
+    assert backend.load_user_profile("ghost") is None
+
+
+def test_save_user_profile_overwrites_existing(backend: InMemoryBackend) -> None:
+    """Saving a profile twice overwrites the first entry."""
+    backend.save_user_profile("alice", {"user_name": "Alice", "version": 1})
+    backend.save_user_profile("alice", {"user_name": "Alice W.", "version": 2})
+    loaded = backend.load_user_profile("alice")
+    assert loaded == {"user_name": "Alice W.", "version": 2}

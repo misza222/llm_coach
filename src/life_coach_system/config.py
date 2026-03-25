@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # Conversation limits (context window)
     max_history_messages: int = 10
 
+    # Cross-session memory: how many past completed sessions to include in context
+    max_past_sessions: int = 3
+
     # Debug mode
     debug: bool = True
 

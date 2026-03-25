@@ -33,6 +33,34 @@ flowchart TD
     AppPy -->|"response"| User
 ```
 
+### Cross-session memory
+
+```mermaid
+flowchart TD
+    SessionEnd["Session ends\n(explicit or auto-complete)"]
+    UpdateProfile["MemoryManager\n.update_user_profile()"]
+    UserProfile["UserProfile\n(Pydantic model)"]
+    Storage["PersistenceBackend\n.save_user_profile()"]
+
+    NewSession["New session starts"]
+    BuildCtx["MemoryManager\n.build_cross_session_context()"]
+    LoadProfile["PersistenceBackend\n.load_user_profile()"]
+    LoadSessions["PersistenceBackend\n.list_sessions() + .load()"]
+    CrossCtx["cross_session context dict"]
+    Prompter["SystemPrompter\n(main.j2 template)"]
+
+    SessionEnd -->|"completed SessionState"| UpdateProfile
+    UpdateProfile -->|"merge emotions, insights,\ngoal, action plan"| UserProfile
+    UserProfile -->|"profile dict"| Storage
+
+    NewSession --> BuildCtx
+    BuildCtx --> LoadProfile
+    BuildCtx --> LoadSessions
+    LoadProfile -->|"UserProfile dict"| CrossCtx
+    LoadSessions -->|"CompletedSessionSummary[]"| CrossCtx
+    CrossCtx -->|"user_profile + past_sessions"| Prompter
+```
+
 ### Evaluation flow
 
 ```mermaid
@@ -57,6 +85,8 @@ flowchart TD
 
 **Message flow:** The user sends a message through the dev UI (`dev_ui.py`). `CoachAgent.respond()` first adds the message to the conversation history via `MemoryManager`, then builds a Jinja2 system prompt with current session context. The prompt and recent history are sent to the LLM via `call_llm()`, which returns a structured `CoachResponseAnalysis` model (Chain of Thought enforced). `MemoryManager.update_from_output()` maps the structured response back into `SessionState` (phase, emotions, question counters). The final text response and updated state are returned to the UI, which persists the state.
 
+**Cross-session memory:** When a session ends (explicitly or auto-completed when starting a new one), `MemoryManager.update_user_profile()` merges the completed session's data — user name, detected emotions, key insights, goal, and action plan — into a persistent `UserProfile`. On each new turn, `MemoryManager.build_cross_session_context()` loads this profile and up to `MAX_PAST_SESSIONS` (default 3) completed session summaries. These are injected into the Jinja2 system prompt so the coach can greet returning users by name, reference past goals, check on previous action plans, and maintain continuity across sessions.
+
 **Evaluation flow:** The user triggers evaluation in the Leaderboard tab. `parse_leaderboard_card()` reads the 14 criteria from the markdown file; `filter_checks_by_priority()` narrows the list. `create_evaluation_model()` dynamically builds a Pydantic model with two fields per criterion (`{id}_reasoning` + `{id}_passed`). The judge LLM evaluates the conversation against all criteria and returns a structured verdict, which is formatted as markdown for display.
 
 ---
@@ -73,7 +103,7 @@ Session state is pluggable via the `PersistenceBackend` protocol. The backend is
 
 For PostgreSQL, install the driver extra: `uv pip install life-coach-system[postgres]`.
 
-The SQL backend stores each user's `SessionState` as a JSON blob in a single `sessions` table (auto-created on startup).
+The SQL backend stores each user's `SessionState` as a JSON blob in the `sessions` table and cross-session `UserProfile` data in the `user_profiles` table (both auto-created on startup).
 
 ---
 
@@ -169,6 +199,7 @@ Key variables:
 | `OPENAI_BASE_URL` | Base URL of the LLM API |
 | `MODEL_NAME` | Full model identifier (e.g. `gpt-4o-mini-2024-07-18`) |
 | `DATABASE_URL` | DB connection string (omit for in-memory). SQLite: `sqlite:///sessions.db`, PostgreSQL: `postgresql://user:pass@host/db` | <!-- pragma: allowlist secret -->
+| `MAX_PAST_SESSIONS` | Number of completed sessions included in cross-session context (default: 3) |
 | `DEBUG` | Set to `false` in production for JSON logging |
 
 ### Authentication (OAuth)

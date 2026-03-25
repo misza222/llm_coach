@@ -149,3 +149,27 @@ def test_nested_state_round_trip(sql_backend: SqlBackend) -> None:
     sql_backend.save("s1", state)
     loaded = sql_backend.load("s1")
     assert loaded == state
+
+
+# --- User profile tests ---
+
+
+def test_save_and_load_user_profile_round_trip(sql_backend: SqlBackend) -> None:
+    """Saved profile is returned unchanged by load_user_profile."""
+    profile = {"user_id": "alice", "user_name": "Alice", "completed_session_count": 3}
+    sql_backend.save_user_profile("alice", profile)
+    loaded = sql_backend.load_user_profile("alice")
+    assert loaded == profile
+
+
+def test_load_user_profile_returns_none_for_unknown_user(sql_backend: SqlBackend) -> None:
+    """load_user_profile() returns None when no profile exists."""
+    assert sql_backend.load_user_profile("ghost") is None
+
+
+def test_save_user_profile_overwrites_existing(sql_backend: SqlBackend) -> None:
+    """Saving a profile twice overwrites the first entry."""
+    sql_backend.save_user_profile("alice", {"user_name": "Alice", "version": 1})
+    sql_backend.save_user_profile("alice", {"user_name": "Alice W.", "version": 2})
+    loaded = sql_backend.load_user_profile("alice")
+    assert loaded == {"user_name": "Alice W.", "version": 2}

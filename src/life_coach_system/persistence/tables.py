@@ -20,6 +20,7 @@ __all__ = [
     "users_table",
     "oauth_accounts_table",
     "anonymous_message_counts_table",
+    "user_profiles_table",
 ]
 
 metadata = MetaData()
@@ -64,5 +65,13 @@ anonymous_message_counts_table = Table(
     metadata,
     Column("anonymous_id", String(255), primary_key=True),
     Column("message_count", Integer, nullable=False, default=0),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+)
+
+user_profiles_table = Table(
+    "user_profiles",
+    metadata,
+    Column("user_id", String(255), primary_key=True),
+    Column("profile", Text, nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
 )

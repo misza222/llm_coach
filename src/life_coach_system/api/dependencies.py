@@ -32,7 +32,7 @@ log = get_logger(__name__)
 @lru_cache(maxsize=1)
 def get_coach() -> CoachAgent:
     """Return the singleton CoachAgent instance."""
-    return CoachAgent()
+    return CoachAgent(storage=get_storage())
 
 
 @lru_cache(maxsize=1)

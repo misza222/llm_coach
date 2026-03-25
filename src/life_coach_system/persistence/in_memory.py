@@ -21,6 +21,7 @@ class InMemoryBackend:
     def __init__(self) -> None:
         """Initialize empty storage."""
         self._storage: dict[str, dict] = {}
+        self._profiles: dict[str, dict] = {}
 
     def save(self, session_id: str, state: dict) -> None:
         """Save session state to memory."""
@@ -69,9 +70,21 @@ class InMemoryBackend:
                 return copy.deepcopy(state)
         return None
 
+    def save_user_profile(self, user_id: str, profile_dict: dict) -> None:
+        """Save or overwrite the cross-session user profile."""
+        self._profiles[user_id] = copy.deepcopy(profile_dict)
+
+    def load_user_profile(self, user_id: str) -> dict | None:
+        """Return the user profile dict, or None if not found."""
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return None
+        return copy.deepcopy(profile)
+
     def clear_all(self) -> None:
         """Clear all stored data (useful for testing)."""
         self._storage.clear()
+        self._profiles.clear()
 
     def get_storage_size(self) -> int:
         """Get number of sessions in storage."""

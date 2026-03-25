@@ -47,3 +47,11 @@ class PersistenceBackend(Protocol):
     def find_active_session(self, user_id: str) -> dict | None:
         """Return the full state dict of the user's active session, or None."""
         ...
+
+    def save_user_profile(self, user_id: str, profile_dict: dict) -> None:
+        """Save or overwrite the cross-session user profile."""
+        ...
+
+    def load_user_profile(self, user_id: str) -> dict | None:
+        """Return the user profile dict, or None if not found."""
+        ...

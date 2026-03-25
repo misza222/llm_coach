@@ -2,6 +2,8 @@
 
 from fastapi.testclient import TestClient
 
+from life_coach_system.api.dependencies import get_storage
+
 
 def test_list_sessions_empty_returns_empty_list(client: TestClient) -> None:
     response = client.get("/api/v1/sessions/nobody")
@@ -121,3 +123,28 @@ def test_export_session_returns_json_file(client: TestClient) -> None:
 def test_export_nonexistent_session_returns_404(client: TestClient) -> None:
     response = client.get("/api/v1/sessions/nobody/nonexistent/export")
     assert response.status_code == 404
+
+
+def test_end_session_creates_user_profile(client: TestClient) -> None:
+    """Ending a session materializes a cross-session user profile."""
+    r = client.post("/api/v1/chat", json={"user_id": "user-prof", "message": "Hello"})
+    session_id = r.json()["session_id"]
+
+    client.post(f"/api/v1/sessions/user-prof/{session_id}/end")
+
+    # Verify profile was persisted via the injected storage
+    storage = client.app.dependency_overrides[get_storage]()
+    profile = storage.load_user_profile("user-prof")
+    assert profile is not None
+    assert profile["completed_session_count"] == 1
+
+
+def test_create_new_session_auto_complete_creates_profile(client: TestClient) -> None:
+    """Auto-completing an active session via POST /new also creates a user profile."""
+    client.post("/api/v1/chat", json={"user_id": "user-auto", "message": "Hi there"})
+    client.post("/api/v1/sessions/user-auto/new")
+
+    storage = client.app.dependency_overrides[get_storage]()
+    profile = storage.load_user_profile("user-auto")
+    assert profile is not None
+    assert profile["completed_session_count"] == 1

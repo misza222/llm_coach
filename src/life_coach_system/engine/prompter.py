@@ -27,6 +27,8 @@ class SystemPrompter:
         profile: dict[str, Any],
         session: dict[str, Any],
         history: list[dict],
+        *,
+        cross_session: dict[str, Any] | None = None,
     ) -> str:
         """
         Render the main system prompt template with session context.
@@ -36,10 +38,17 @@ class SystemPrompter:
             profile: User profile data (user_name, main_goal).
             session: Session state (phase, turn_count, detected_emotions).
             history: Recent conversation history.
+            cross_session: Cross-session context (user_profile, past_sessions).
 
         Returns:
             Rendered system prompt string.
         """
         template = self.env.get_template("main.j2")
 
-        return template.render(core=core, profile=profile, session=session, history=history)
+        return template.render(
+            core=core,
+            profile=profile,
+            session=session,
+            history=history,
+            cross_session=cross_session or {},
+        )
